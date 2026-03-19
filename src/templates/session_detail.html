@@ -1,0 +1,61 @@
+{% extends "base.html" %}
+{% block content %}
+<section class="card">
+  <div class="history-header">
+    <h2>Session {{ session.start_time.strftime('%Y-%m-%d') if session.start_time else '' }}</h2>
+    <a class="btn" href="/admin/history">&larr; Tillbaka</a>
+  </div>
+
+  <div class="session-meta">
+    <div class="meta-item">
+      <span class="meta-label">Tid</span>
+      <span>{{ session.start_time.strftime('%H:%M') if session.start_time else '—' }}{% if session.end_time %} – {{ session.end_time.strftime('%H:%M') }}{% endif %}</span>
+    </div>
+    {% if session.location %}
+    <div class="meta-item">
+      <span class="meta-label">Plats</span>
+      <span>{{ session.location }}</span>
+    </div>
+    {% endif %}
+    <div class="meta-item">
+      <span class="meta-label">Incheckade</span>
+      <span class="badge">{{ total }}</span>
+    </div>
+    <div class="meta-item">
+      <span class="meta-label">Status</span>
+      <span class="status-pill {{ 'open' if session.status == 'open' else 'closed' }}">{{ session.status }}</span>
+    </div>
+    {% if session.notes %}
+    <div class="meta-item">
+      <span class="meta-label">Anteckningar</span>
+      <span>{{ session.notes }}</span>
+    </div>
+    {% endif %}
+  </div>
+
+  {% if checkins %}
+  <table class="data-table">
+    <thead>
+      <tr>
+        <th>#</th>
+        <th>Namn</th>
+        <th>Tid</th>
+        <th>Metod</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for c in checkins %}
+      <tr>
+        <td><span class="attendance-number">{{ c.number }}</span></td>
+        <td>{{ c.name }}</td>
+        <td class="attendance-time">{{ c.checkin_time[:16] if c.checkin_time else '—' }}</td>
+        <td>{{ c.method }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% else %}
+  <p class="attendance-empty">Inga incheckningar för denna session.</p>
+  {% endif %}
+</section>
+{% endblock %}

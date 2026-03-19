@@ -1,0 +1,79 @@
+{% extends "base.html" %}
+{% block content %}
+<section class="grid">
+  <div class="card">
+    <h2>Session status</h2>
+    {% if open_session %}
+      <p>Open session started at {{ open_session.start_time }}</p>
+      <button class="btn" type="button" id="admin-end">End session</button>
+    {% else %}
+      <p>No open session.</p>
+      <form id="admin-start-form" class="form" onsubmit="return false;">
+        <label>Location</label>
+        <input id="admin-location" type="text" placeholder="Local" />
+        <label>Notes</label>
+        <input id="admin-notes" type="text" placeholder="Optional" />
+        <button class="btn primary" type="button" id="admin-start">Start session</button>
+      </form>
+    {% endif %}
+  </div>
+
+  <div class="card">
+    <h2>Manual check-in</h2>
+    {% if error %}
+      <div class="error">{{ error }}</div>
+    {% endif %}
+    {% if message %}
+      <div class="success">{{ message }}</div>
+    {% endif %}
+    <form method="post" action="/admin/manual" class="form">
+      <label>Member number</label>
+      <input name="member_number" type="text" placeholder="Member number" />
+      <label>Full name (optional)</label>
+      <input name="full_name" type="text" placeholder="First Last" />
+      <label>Guest name (optional)</label>
+      <input name="guest_name" type="text" placeholder="Guest name" />
+      <label>QR data (optional, to link token)</label>
+      <input name="qr_data" type="text" placeholder="Paste QR URL or token" />
+      <button class="btn primary" type="submit">Save check-in</button>
+    </form>
+  </div>
+
+  <div class="card">
+    <h2>Närvarolista</h2>
+    <div id="attendance-container">
+      <p class="attendance-empty">Laddar...</p>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>Headcount</h2>
+    <p>Registrera hur många som är i lokalen just nu.</p>
+    <div class="form headcount-form">
+      <input id="headcount-input" type="number" min="0" max="100" placeholder="Antal" />
+      <button class="btn primary" type="button" id="headcount-btn">Spara</button>
+    </div>
+    <div id="headcount-log"></div>
+  </div>
+
+  <div class="card">
+    <h2>Imports</h2>
+    <p>Import members from eBas CSV.</p>
+    <a class="btn" href="/admin/import">Import members</a>
+  </div>
+
+  <div class="card">
+    <h2>Historik</h2>
+    <p>Se alla tidigare sessioner och deltagare.</p>
+    <a class="btn" href="/admin/history">Sessionshistorik</a>
+  </div>
+
+  <div class="card">
+    <h2>Reports</h2>
+    <p>Export attendance for SFR.</p>
+    <a class="btn" href="/admin/export">Export CSV</a>
+  </div>
+</section>
+
+<script src="/static/admin.js"></script>
+{% endblock %}

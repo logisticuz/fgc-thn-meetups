@@ -1,0 +1,17 @@
+{% extends "base.html" %}
+{% block content %}
+<section class="card">
+  <h1>Export CSV</h1>
+  <form method="get" action="/admin/export" class="form">
+    <label>Start date</label>
+    <input type="date" name="start" required />
+    <label>End date</label>
+    <input type="date" name="end" required />
+    <button class="btn primary" type="submit">Export</button>
+  </form>
+  <div class="actions">
+    <a class="btn" href="/admin/export?preset=last2">Last 2 months</a>
+    <a class="btn" href="/admin">Back</a>
+  </div>
+</section>
+{% endblock %}

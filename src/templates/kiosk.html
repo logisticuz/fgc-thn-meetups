@@ -1,0 +1,39 @@
+{% extends "base.html" %}
+{% block content %}
+<section class="card kiosk-card">
+  <div class="kiosk-header">
+    <h1>Weekly meetup check-in</h1>
+    <p>Show your Sverok QR to the camera.</p>
+  </div>
+
+  <div id="session-start" class="panel" {% if open_session %}style="display:none"{% endif %}>
+    <h2>Start session</h2>
+    <div class="form-row">
+      <label>Location</label>
+      <input id="location" type="text" placeholder="Local" />
+    </div>
+    <div class="form-row">
+      <label>Notes</label>
+      <input id="notes" type="text" placeholder="Optional" />
+    </div>
+    <button id="start-session" class="btn primary">Start session</button>
+  </div>
+
+  <div id="scan-panel" class="panel" {% if not open_session %}style="display:none"{% endif %}>
+    <div class="kiosk-topbar">
+      <div class="status" id="status">READY</div>
+      <div class="kiosk-counters">
+        <div class="checkin-counter">Här nu: <span id="present-value">0</span></div>
+        <div class="checkin-counter secondary">Totalt: <span id="counter-value">0</span></div>
+      </div>
+    </div>
+    <video id="camera" playsinline autoplay muted></video>
+    <div class="scan-hint" id="scan-hint">
+      Visa din Sverok QR-kod för kameran.
+    </div>
+    <div class="scan-result" id="scan-result"></div>
+  </div>
+</section>
+
+<script src="/static/kiosk.js"></script>
+{% endblock %}

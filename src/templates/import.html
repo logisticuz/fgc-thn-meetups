@@ -1,0 +1,18 @@
+{% extends "base.html" %}
+{% block content %}
+<section class="card">
+  <h1>Import members</h1>
+  <p>Export from eBas and save as CSV before upload.</p>
+  {% if error %}
+    <div class="error">{{ error }}</div>
+  {% endif %}
+  {% if summary %}
+    <div class="success">Rows: {{ summary.rows }}, added: {{ summary.added }}, updated: {{ summary.updated }}</div>
+  {% endif %}
+  <form method="post" action="/admin/import" enctype="multipart/form-data" class="form">
+    <input type="file" name="file" accept=".csv" required />
+    <button class="btn primary" type="submit">Import</button>
+  </form>
+  <a class="btn" href="/admin">Back</a>
+</section>
+{% endblock %}

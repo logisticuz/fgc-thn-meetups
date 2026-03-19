@@ -1,0 +1,14 @@
+{% extends "base.html" %}
+{% block content %}
+<section class="card">
+  <h1>Admin login</h1>
+  <form method="post" action="/admin/login" class="form">
+    <label>PIN</label>
+    <input name="pin" type="password" placeholder="Enter PIN" required />
+    {% if error %}
+      <div class="error">{{ error }}</div>
+    {% endif %}
+    <button class="btn primary" type="submit">Login</button>
+  </form>
+</section>
+{% endblock %}

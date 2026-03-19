@@ -1,0 +1,38 @@
+{% extends "base.html" %}
+{% block content %}
+<section class="card">
+  <div class="history-header">
+    <h2>Sessionshistorik</h2>
+    <a class="btn" href="/admin">&larr; Admin</a>
+  </div>
+
+  {% if sessions %}
+  <table class="data-table">
+    <thead>
+      <tr>
+        <th>Datum</th>
+        <th>Tid</th>
+        <th>Plats</th>
+        <th>Incheckade</th>
+        <th>Status</th>
+        <th></th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for s in sessions %}
+      <tr>
+        <td>{{ s.start_time.strftime('%Y-%m-%d') if s.start_time else '—' }}</td>
+        <td>{{ s.start_time.strftime('%H:%M') if s.start_time else '' }}{% if s.end_time %} – {{ s.end_time.strftime('%H:%M') }}{% endif %}</td>
+        <td>{{ s.location }}</td>
+        <td><span class="badge">{{ s.total_checkins }}</span></td>
+        <td><span class="status-pill {{ 'open' if s.status == 'open' else 'closed' }}">{{ s.status }}</span></td>
+        <td><a class="btn btn-sm" href="/admin/history/{{ s.id }}">Detaljer</a></td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% else %}
+  <p class="attendance-empty">Inga sessioner registrerade.</p>
+  {% endif %}
+</section>
+{% endblock %}
