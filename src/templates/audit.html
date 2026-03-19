@@ -1,0 +1,34 @@
+{% extends "base.html" %}
+{% block content %}
+<section class="card">
+  <div class="history-header">
+    <h2>Logg</h2>
+    <a class="btn" href="/admin">&larr; Admin</a>
+  </div>
+
+  {% if entries %}
+  <table class="data-table">
+    <thead>
+      <tr>
+        <th>Tid</th>
+        <th>Åtgärd</th>
+        <th>Detalj</th>
+        <th>Av</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for e in entries %}
+      <tr>
+        <td class="attendance-time">{{ e.created_at.strftime('%Y-%m-%d %H:%M') if e.created_at else '' }}</td>
+        <td>{{ e.action }}</td>
+        <td>{{ e.detail or '' }}</td>
+        <td>{{ e.created_by or '' }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% else %}
+  <p class="attendance-empty">Inga loggposter.</p>
+  {% endif %}
+</section>
+{% endblock %}

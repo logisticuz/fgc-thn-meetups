@@ -3,6 +3,9 @@ __pycache__/
 *.pyc
 .venv/
 
+# Claude
+.claude/
+
 # Local data and exports
 /data/local/
 /data/exports/

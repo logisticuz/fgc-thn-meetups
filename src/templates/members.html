@@ -1,0 +1,50 @@
+{% extends "base.html" %}
+{% block content %}
+<section class="card">
+  <div class="history-header">
+    <h2>Medlemmar</h2>
+    <a class="btn" href="/admin">&larr; Admin</a>
+  </div>
+
+  <form method="get" action="/admin/members" class="search-bar">
+    <input type="text" name="q" value="{{ search }}" placeholder="Sök namn, nummer, nick..." />
+    <button class="btn primary" type="submit">Sök</button>
+    {% if search %}
+    <a class="btn" href="/admin/members">Rensa</a>
+    {% endif %}
+  </form>
+
+  <p style="color:var(--muted);margin-bottom:12px">{{ total }} medlemmar</p>
+
+  {% if members %}
+  <table class="data-table">
+    <thead>
+      <tr>
+        <th>Nr</th>
+        <th>Namn</th>
+        <th>Nick</th>
+        <th>Ort</th>
+        <th>Medlem sedan</th>
+        <th>QR</th>
+        <th>Källa</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for m in members %}
+      <tr>
+        <td>{{ m.member_number or '—' }}</td>
+        <td>{{ m.first_name }} {{ m.last_name }}</td>
+        <td>{{ m.display_name or '' }}</td>
+        <td>{{ m.city or '' }}</td>
+        <td>{{ m.membership_start.isoformat() if m.membership_start else '—' }}</td>
+        <td>{% if m.token_hash %}<span class="badge">QR</span>{% endif %}</td>
+        <td>{{ m.source }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% else %}
+  <p class="attendance-empty">Inga medlemmar hittades.</p>
+  {% endif %}
+</section>
+{% endblock %}

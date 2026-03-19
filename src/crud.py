@@ -1,7 +1,7 @@
 from datetime import datetime
 from sqlalchemy import or_, func
 from sqlalchemy.orm import Session
-from .models import Member, Session as MeetupSession, Checkin, Headcount
+from .models import Member, Session as MeetupSession, Checkin, Headcount, ImportBatch, AuditLog
 
 
 def get_open_session(db: Session) -> MeetupSession | None:
@@ -183,6 +183,15 @@ def get_all_sessions(db: Session) -> list[dict]:
     return result
 
 
+def delete_checkin(db: Session, checkin_id: int) -> bool:
+    checkin = db.query(Checkin).filter(Checkin.id == checkin_id).first()
+    if not checkin:
+        return False
+    db.delete(checkin)
+    db.commit()
+    return True
+
+
 def upsert_member(db: Session, data: dict) -> bool:
     member_number = data.get("member_number")
     member = None
@@ -200,3 +209,124 @@ def upsert_member(db: Session, data: dict) -> bool:
             continue
         setattr(member, key, value)
     return False
+
+
+# --- Member list ---
+
+def get_all_members(db: Session, search: str | None = None) -> list[Member]:
+    q = db.query(Member)
+    if search:
+        like = f"%{search.strip().lower()}%"
+        q = q.filter(
+            or_(
+                func.lower(Member.first_name).like(like),
+                func.lower(Member.last_name).like(like),
+                func.lower(Member.member_number).like(like),
+                func.lower(Member.display_name).like(like),
+            )
+        )
+    return q.order_by(Member.last_name, Member.first_name).all()
+
+
+# --- Import batch ---
+
+def create_import_batch(db: Session, filename: str, file_hash: str, total: int, added: int, updated: int) -> ImportBatch:
+    batch = ImportBatch(
+        source_file_name=filename,
+        source_file_hash=file_hash,
+        records_total=total,
+        records_added=added,
+        records_updated=updated,
+    )
+    db.add(batch)
+    db.commit()
+    db.refresh(batch)
+    return batch
+
+
+def get_import_batches(db: Session) -> list[ImportBatch]:
+    return db.query(ImportBatch).order_by(ImportBatch.imported_at.desc()).all()
+
+
+# --- Audit log ---
+
+def log_action(db: Session, action: str, detail: str | None = None, created_by: str | None = None) -> None:
+    entry = AuditLog(action=action, detail=detail, created_by=created_by)
+    db.add(entry)
+    db.commit()
+
+
+def get_audit_log(db: Session, limit: int = 50) -> list[AuditLog]:
+    return db.query(AuditLog).order_by(AuditLog.created_at.desc()).limit(limit).all()
+
+
+# --- Statistics ---
+
+def get_session_stats(db: Session, limit: int = 20) -> list[dict]:
+    sessions = (
+        db.query(MeetupSession)
+        .filter(MeetupSession.status == "closed")
+        .order_by(MeetupSession.start_time.desc())
+        .limit(limit)
+        .all()
+    )
+    result = []
+    for s in sessions:
+        total = db.query(Checkin).filter(Checkin.session_id == s.id).count()
+        peak = db.query(func.max(Headcount.count)).filter(Headcount.session_id == s.id).scalar() or 0
+        result.append({
+            "date": s.start_time.strftime("%Y-%m-%d") if s.start_time else "",
+            "weekday": s.start_time.strftime("%A") if s.start_time else "",
+            "total_checkins": total,
+            "peak_headcount": peak,
+        })
+    return result
+
+
+def get_member_stats(db: Session) -> list[dict]:
+    members = db.query(Member).all()
+    result = []
+    for m in members:
+        checkins = db.query(Checkin).filter(Checkin.member_id == m.id).all()
+        if not checkins:
+            continue
+        total_sessions = len(checkins)
+        last = max(c.checkin_time for c in checkins if c.checkin_time)
+        durations = []
+        for c in checkins:
+            if c.checkin_time and c.checkout_time:
+                dur = (c.checkout_time - c.checkin_time).total_seconds() / 60
+                durations.append(dur)
+        avg_dur = round(sum(durations) / len(durations)) if durations else None
+        result.append({
+            "name": f"{m.first_name} {m.last_name}",
+            "total_sessions": total_sessions,
+            "last_attended": last.strftime("%Y-%m-%d") if last else "",
+            "avg_duration_minutes": avg_dur,
+        })
+    result.sort(key=lambda x: x["total_sessions"], reverse=True)
+    return result
+
+
+def get_overview_stats(db: Session) -> dict:
+    total_members = db.query(Member).count()
+    total_sessions = db.query(MeetupSession).filter(MeetupSession.status == "closed").count()
+    total_checkins = db.query(Checkin).count()
+    avg = round(total_checkins / total_sessions, 1) if total_sessions > 0 else 0
+
+    most_active = (
+        db.query(Member.first_name, Member.last_name, func.count(Checkin.id).label("cnt"))
+        .join(Checkin, Checkin.member_id == Member.id)
+        .group_by(Member.id)
+        .order_by(func.count(Checkin.id).desc())
+        .first()
+    )
+    most_active_name = f"{most_active[0]} {most_active[1]}" if most_active else "—"
+
+    return {
+        "total_members": total_members,
+        "total_sessions": total_sessions,
+        "total_checkins": total_checkins,
+        "avg_per_session": avg,
+        "most_active": most_active_name,
+    }

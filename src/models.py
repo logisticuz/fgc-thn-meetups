@@ -53,6 +53,28 @@ class Checkin(Base):
     )
 
 
+class ImportBatch(Base):
+    __tablename__ = "import_batches"
+
+    id = Column(Integer, primary_key=True)
+    source_file_name = Column(String, nullable=False)
+    source_file_hash = Column(String, nullable=True)
+    imported_at = Column(DateTime(timezone=True), server_default=func.now())
+    records_total = Column(Integer, nullable=False, default=0)
+    records_added = Column(Integer, nullable=False, default=0)
+    records_updated = Column(Integer, nullable=False, default=0)
+
+
+class AuditLog(Base):
+    __tablename__ = "audit_log"
+
+    id = Column(Integer, primary_key=True)
+    action = Column(String, nullable=False)
+    detail = Column(String, nullable=True)
+    created_by = Column(String, nullable=True)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+
+
 class Headcount(Base):
     __tablename__ = "headcounts"
 

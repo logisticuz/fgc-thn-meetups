@@ -1,0 +1,80 @@
+{% extends "base.html" %}
+{% block content %}
+<section class="card">
+  <div class="history-header">
+    <h2>Statistik</h2>
+    <a class="btn" href="/admin">&larr; Admin</a>
+  </div>
+
+  <div class="stats-grid">
+    <div class="stat-card">
+      <div class="stat-value">{{ overview.total_members }}</div>
+      <div class="stat-label">Medlemmar</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-value">{{ overview.total_sessions }}</div>
+      <div class="stat-label">Sessioner</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-value">{{ overview.avg_per_session }}</div>
+      <div class="stat-label">Snitt/session</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-value accent">{{ overview.most_active }}</div>
+      <div class="stat-label">Mest aktiv</div>
+    </div>
+  </div>
+</section>
+
+{% if session_stats %}
+<section class="card">
+  <h2>Senaste sessioner</h2>
+  <table class="data-table">
+    <thead>
+      <tr>
+        <th>Datum</th>
+        <th>Dag</th>
+        <th>Deltagare</th>
+        <th>Peak headcount</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for s in session_stats %}
+      <tr>
+        <td>{{ s.date }}</td>
+        <td>{{ s.weekday }}</td>
+        <td><span class="badge">{{ s.total_checkins }}</span></td>
+        <td>{% if s.peak_headcount %}<span class="badge">{{ s.peak_headcount }}</span>{% else %}—{% endif %}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</section>
+{% endif %}
+
+{% if member_stats %}
+<section class="card">
+  <h2>Topp-medlemmar</h2>
+  <table class="data-table">
+    <thead>
+      <tr>
+        <th>Namn</th>
+        <th>Besök</th>
+        <th>Senast</th>
+        <th>Snittid</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for m in member_stats %}
+      <tr>
+        <td>{{ m.name }}</td>
+        <td><span class="badge">{{ m.total_sessions }}</span></td>
+        <td>{{ m.last_attended }}</td>
+        <td>{% if m.avg_duration_minutes %}{{ m.avg_duration_minutes }} min{% else %}—{% endif %}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</section>
+{% endif %}
+{% endblock %}

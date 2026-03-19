@@ -111,6 +111,7 @@ async def kiosk(request: Request, db: Session = Depends(get_db)):
 @app.post("/api/sessions/start")
 async def api_start_session(payload: SessionStart, db: Session = Depends(get_db)):
     session = crud.start_session(db, payload.location, payload.notes)
+    crud.log_action(db, "session_started", f"Session {session.id} started at {payload.location or 'unknown'}")
     return {"id": session.id, "start_time": session.start_time.isoformat()}
 
 
@@ -120,6 +121,7 @@ async def api_end_session(db: Session = Depends(get_db)):
     if not session:
         return {"status": "none"}
     crud.end_session(db, session)
+    crud.log_action(db, "session_ended", f"Session {session.id} ended")
     return {"status": "ended"}
 
 
@@ -144,7 +146,7 @@ async def api_checkin(payload: CheckinRequest, db: Session = Depends(get_db)):
     token_hash = _hash_token(token)
     member = crud.get_member_by_token_hash(db, token_hash)
     if not member:
-        return JSONResponse({"status": "unknown"})
+        return JSONResponse({"status": "unknown", "token_hash": token_hash})
 
     existing = crud.get_checkin_for_member(db, session.id, member.id)
     if existing:
@@ -209,6 +211,59 @@ async def api_get_headcounts(db: Session = Depends(get_db)):
     if not session:
         return {"headcounts": []}
     return {"headcounts": crud.get_session_headcounts(db, session.id)}
+
+
+class LinkAndCheckinRequest(BaseModel):
+    token_hash: str
+    member_number: str | None = None
+    member_name: str | None = None
+
+
+@app.post("/api/link-and-checkin")
+async def api_link_and_checkin(payload: LinkAndCheckinRequest, db: Session = Depends(get_db)):
+    session = crud.get_open_session(db)
+    if not session:
+        return JSONResponse({"status": "no_session"})
+
+    member = None
+    if payload.member_number:
+        member = crud.get_member_by_number(db, payload.member_number.strip())
+    if not member and payload.member_name:
+        results = crud.search_members_by_name(db, payload.member_name)
+        if len(results) == 1:
+            member = results[0]
+
+    if not member:
+        return JSONResponse({"status": "not_found"})
+
+    ok, msg = crud.link_token(db, member, payload.token_hash)
+    if not ok:
+        return JSONResponse({"status": "error", "message": msg})
+
+    existing = crud.get_checkin_for_member(db, session.id, member.id)
+    if existing:
+        total = crud.count_checkins(db, session.id)
+        return JSONResponse({"status": "already_in", "member_name": f"{member.first_name} {member.last_name}", "total": total})
+
+    checkin = crud.create_checkin(db, session_id=session.id, member_id=member.id, guest_name=None, method="qr_scan")
+    total = crud.count_checkins(db, session.id)
+    present = crud.count_present(db, session.id)
+    return JSONResponse({
+        "status": "ok",
+        "member_name": f"{member.first_name} {member.last_name}",
+        "checkin_number": total,
+        "present": present,
+    })
+
+
+@app.delete("/api/checkin/{checkin_id}")
+async def api_delete_checkin(request: Request, checkin_id: int, db: Session = Depends(get_db)):
+    if not _is_admin(request):
+        return JSONResponse({"status": "unauthorized"}, status_code=401)
+    ok = crud.delete_checkin(db, checkin_id)
+    if not ok:
+        return JSONResponse({"status": "not_found"}, status_code=404)
+    return {"status": "ok"}
 
 
 @app.get("/admin/login", response_class=HTMLResponse)
@@ -380,18 +435,56 @@ async def admin_session_detail(request: Request, session_id: int, db: Session = 
     if not session:
         return RedirectResponse("/admin/history", status_code=302)
     checkins = crud.get_session_checkins(db, session_id)
+    headcounts = crud.get_session_headcounts(db, session_id)
+    peak = max((h["count"] for h in headcounts), default=0)
     return templates.TemplateResponse(
         "session_detail.html",
-        {"request": request, "session": session, "checkins": checkins, "total": len(checkins)},
+        {"request": request, "session": session, "checkins": checkins, "total": len(checkins), "headcounts": headcounts, "peak": peak},
     )
 
 
-@app.get("/admin/import", response_class=HTMLResponse)
-async def admin_import(request: Request):
+@app.get("/admin/members", response_class=HTMLResponse)
+async def admin_members(request: Request, q: str | None = None, db: Session = Depends(get_db)):
     guard = _require_admin(request)
     if guard:
         return guard
-    return templates.TemplateResponse("import.html", {"request": request, "summary": None, "error": None})
+    members = crud.get_all_members(db, search=q)
+    return templates.TemplateResponse(
+        "members.html",
+        {"request": request, "members": members, "search": q or "", "total": len(members)},
+    )
+
+
+@app.get("/admin/stats", response_class=HTMLResponse)
+async def admin_stats(request: Request, db: Session = Depends(get_db)):
+    guard = _require_admin(request)
+    if guard:
+        return guard
+    overview = crud.get_overview_stats(db)
+    session_stats = crud.get_session_stats(db)
+    member_stats = crud.get_member_stats(db)
+    return templates.TemplateResponse(
+        "stats.html",
+        {"request": request, "overview": overview, "session_stats": session_stats, "member_stats": member_stats},
+    )
+
+
+@app.get("/admin/audit", response_class=HTMLResponse)
+async def admin_audit(request: Request, db: Session = Depends(get_db)):
+    guard = _require_admin(request)
+    if guard:
+        return guard
+    entries = crud.get_audit_log(db)
+    return templates.TemplateResponse("audit.html", {"request": request, "entries": entries})
+
+
+@app.get("/admin/import", response_class=HTMLResponse)
+async def admin_import(request: Request, db: Session = Depends(get_db)):
+    guard = _require_admin(request)
+    if guard:
+        return guard
+    batches = crud.get_import_batches(db)
+    return templates.TemplateResponse("import.html", {"request": request, "summary": None, "error": None, "batches": batches})
 
 
 @app.post("/admin/import", response_class=HTMLResponse)
@@ -466,12 +559,17 @@ async def admin_import_post(
 
     db.commit()
 
+    file_hash = hashlib.sha256(content).hexdigest()
+    crud.create_import_batch(db, file.filename, file_hash, rows, added, updated)
+    crud.log_action(db, "member_import", f"Imported {file.filename}: {added} new, {updated} updated", "admin")
+
     summary = {
         "rows": rows,
         "added": added,
         "updated": updated,
     }
-    return templates.TemplateResponse("import.html", {"request": request, "summary": summary, "error": None})
+    batches = crud.get_import_batches(db)
+    return templates.TemplateResponse("import.html", {"request": request, "summary": summary, "error": None, "batches": batches})
 
 
 @app.get("/admin/export", response_class=HTMLResponse)
@@ -527,11 +625,17 @@ def _export_csv(db: Session, start_date, end_date):
             "last_name",
             "guest_name",
             "checkin_time",
+            "checkout_time",
+            "duration_minutes",
             "method",
         ]
     )
 
     for checkin, session, member in rows:
+        duration = ""
+        if checkin.checkin_time and checkin.checkout_time:
+            dur = (checkin.checkout_time - checkin.checkin_time).total_seconds() / 60
+            duration = str(round(dur))
         writer.writerow(
             [
                 session.start_time.date().isoformat() if session.start_time else "",
@@ -542,6 +646,8 @@ def _export_csv(db: Session, start_date, end_date):
                 member.last_name if member else "",
                 checkin.guest_name or "",
                 checkin.checkin_time.isoformat() if checkin.checkin_time else "",
+                checkin.checkout_time.isoformat() if checkin.checkout_time else "",
+                duration,
                 checkin.method,
             ]
         )

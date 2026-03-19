@@ -2,24 +2,24 @@
 {% block content %}
 <section class="grid">
   <div class="card">
-    <h2>Session status</h2>
+    <h2>Session</h2>
     {% if open_session %}
-      <p>Open session started at {{ open_session.start_time }}</p>
-      <button class="btn" type="button" id="admin-end">End session</button>
+      <p>Aktiv session startad {{ open_session.start_time.strftime('%H:%M') if open_session.start_time else '' }}</p>
+      <button class="btn" type="button" id="admin-end">Avsluta session</button>
     {% else %}
-      <p>No open session.</p>
+      <p>Ingen aktiv session.</p>
       <form id="admin-start-form" class="form" onsubmit="return false;">
-        <label>Location</label>
-        <input id="admin-location" type="text" placeholder="Local" />
-        <label>Notes</label>
-        <input id="admin-notes" type="text" placeholder="Optional" />
-        <button class="btn primary" type="button" id="admin-start">Start session</button>
+        <label>Plats</label>
+        <input id="admin-location" type="text" placeholder="Lokal" />
+        <label>Anteckningar</label>
+        <input id="admin-notes" type="text" placeholder="Valfritt" />
+        <button class="btn primary" type="button" id="admin-start">Starta session</button>
       </form>
     {% endif %}
   </div>
 
   <div class="card">
-    <h2>Manual check-in</h2>
+    <h2>Manuell incheckning</h2>
     {% if error %}
       <div class="error">{{ error }}</div>
     {% endif %}
@@ -27,15 +27,15 @@
       <div class="success">{{ message }}</div>
     {% endif %}
     <form method="post" action="/admin/manual" class="form">
-      <label>Member number</label>
-      <input name="member_number" type="text" placeholder="Member number" />
-      <label>Full name (optional)</label>
-      <input name="full_name" type="text" placeholder="First Last" />
-      <label>Guest name (optional)</label>
-      <input name="guest_name" type="text" placeholder="Guest name" />
-      <label>QR data (optional, to link token)</label>
-      <input name="qr_data" type="text" placeholder="Paste QR URL or token" />
-      <button class="btn primary" type="submit">Save check-in</button>
+      <label>Medlemsnummer</label>
+      <input name="member_number" type="text" placeholder="Medlemsnummer" />
+      <label>Namn (valfritt)</label>
+      <input name="full_name" type="text" placeholder="Förnamn Efternamn" />
+      <label>Gästnamn (valfritt)</label>
+      <input name="guest_name" type="text" placeholder="Gästnamn" />
+      <label>QR-data (valfritt, för att koppla token)</label>
+      <input name="qr_data" type="text" placeholder="Klistra in QR-URL eller token" />
+      <button class="btn primary" type="submit">Checka in</button>
     </form>
   </div>
 
@@ -57,9 +57,15 @@
   </div>
 
   <div class="card">
-    <h2>Imports</h2>
-    <p>Import members from eBas CSV.</p>
-    <a class="btn" href="/admin/import">Import members</a>
+    <h2>Medlemmar</h2>
+    <p>Se alla importerade medlemmar.</p>
+    <a class="btn" href="/admin/members">Medlemslista</a>
+  </div>
+
+  <div class="card">
+    <h2>Import</h2>
+    <p>Importera medlemmar från eBas CSV.</p>
+    <a class="btn" href="/admin/import">Importera</a>
   </div>
 
   <div class="card">
@@ -69,9 +75,21 @@
   </div>
 
   <div class="card">
-    <h2>Reports</h2>
-    <p>Export attendance for SFR.</p>
-    <a class="btn" href="/admin/export">Export CSV</a>
+    <h2>Statistik</h2>
+    <p>Trender och insikter.</p>
+    <a class="btn" href="/admin/stats">Visa statistik</a>
+  </div>
+
+  <div class="card">
+    <h2>Rapporter</h2>
+    <p>Exportera närvaro för SFR.</p>
+    <a class="btn" href="/admin/export">Exportera CSV</a>
+  </div>
+
+  <div class="card">
+    <h2>Logg</h2>
+    <p>Spårning av admin-åtgärder.</p>
+    <a class="btn" href="/admin/audit">Visa logg</a>
   </div>
 </section>
 

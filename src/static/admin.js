@@ -25,6 +25,12 @@ if (endButton) {
   });
 }
 
+async function deleteCheckin(checkinId) {
+  if (!confirm("Ta bort denna incheckning?")) return;
+  await fetch(`/api/checkin/${checkinId}`, { method: "DELETE" });
+  loadAttendance();
+}
+
 async function loadAttendance() {
   if (!attendanceContainer) return;
   try {
@@ -39,7 +45,7 @@ async function loadAttendance() {
       const outTime = c.checkout_time ? new Date(c.checkout_time).toLocaleTimeString("sv-SE", { hour: "2-digit", minute: "2-digit" }) : "";
       const statusClass = c.checked_out ? "checkout-out" : "checkout-in";
       const statusText = c.checked_out ? `ut ${outTime}` : "här";
-      return `<li class="${statusClass}"><span><span class="attendance-number">#${c.number}</span>${c.name}</span><span class="attendance-time">${time} · ${statusText}</span></li>`;
+      return `<li class="${statusClass}"><span><span class="attendance-number">#${c.number}</span>${c.name}</span><span class="attendance-actions"><span class="attendance-time">${time} · ${statusText}</span><button class="btn-delete" onclick="deleteCheckin(${c.checkin_id})" title="Ta bort">&times;</button></span></li>`;
     });
     attendanceContainer.innerHTML = `<p style="margin-bottom:8px"><span style="color:var(--accent);font-weight:700;">${data.present} här nu</span> <span style="color:var(--muted)">· ${data.total} totalt</span></p><ul class="attendance-list">${items.join("")}</ul>`;
   } catch (err) {
@@ -61,9 +67,7 @@ async function loadHeadcounts() {
       return `<li><span class="attendance-number">${hc.count} pers</span><span class="attendance-time">${time}</span></li>`;
     });
     headcountLog.innerHTML = `<ul class="attendance-list" style="margin-top:10px">${items.join("")}</ul>`;
-  } catch (err) {
-    // ignore
-  }
+  } catch (err) { /* ignore */ }
 }
 
 if (headcountBtn) {

@@ -21,6 +21,12 @@
       <span class="meta-label">Incheckade</span>
       <span class="badge">{{ total }}</span>
     </div>
+    {% if peak %}
+    <div class="meta-item">
+      <span class="meta-label">Peak</span>
+      <span class="badge">{{ peak }} pers</span>
+    </div>
+    {% endif %}
     <div class="meta-item">
       <span class="meta-label">Status</span>
       <span class="status-pill {{ 'open' if session.status == 'open' else 'closed' }}">{{ session.status }}</span>
@@ -34,21 +40,24 @@
   </div>
 
   {% if checkins %}
+  <h3>Deltagare</h3>
   <table class="data-table">
     <thead>
       <tr>
         <th>#</th>
         <th>Namn</th>
-        <th>Tid</th>
+        <th>In</th>
+        <th>Ut</th>
         <th>Metod</th>
       </tr>
     </thead>
     <tbody>
       {% for c in checkins %}
-      <tr>
+      <tr class="{{ 'checkout-out' if c.checked_out else '' }}">
         <td><span class="attendance-number">{{ c.number }}</span></td>
         <td>{{ c.name }}</td>
         <td class="attendance-time">{{ c.checkin_time[:16] if c.checkin_time else '—' }}</td>
+        <td class="attendance-time">{{ c.checkout_time[:16] if c.checkout_time else '' }}</td>
         <td>{{ c.method }}</td>
       </tr>
       {% endfor %}
@@ -56,6 +65,26 @@
   </table>
   {% else %}
   <p class="attendance-empty">Inga incheckningar för denna session.</p>
+  {% endif %}
+
+  {% if headcounts %}
+  <h3 style="margin-top:24px">Headcount</h3>
+  <table class="data-table">
+    <thead>
+      <tr>
+        <th>Tid</th>
+        <th>Antal</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for h in headcounts %}
+      <tr>
+        <td class="attendance-time">{{ h.recorded_at[:16] if h.recorded_at else '' }}</td>
+        <td><span class="badge">{{ h.count }}</span></td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
   {% endif %}
 </section>
 {% endblock %}

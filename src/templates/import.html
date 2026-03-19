@@ -1,18 +1,48 @@
 {% extends "base.html" %}
 {% block content %}
 <section class="card">
-  <h1>Import members</h1>
-  <p>Export from eBas and save as CSV before upload.</p>
+  <div class="history-header">
+    <h2>Importera medlemmar</h2>
+    <a class="btn" href="/admin">&larr; Admin</a>
+  </div>
+  <p>Exportera från eBas och spara som CSV innan du laddar upp.</p>
   {% if error %}
     <div class="error">{{ error }}</div>
   {% endif %}
   {% if summary %}
-    <div class="success">Rows: {{ summary.rows }}, added: {{ summary.added }}, updated: {{ summary.updated }}</div>
+    <div class="success">Rader: {{ summary.rows }}, nya: {{ summary.added }}, uppdaterade: {{ summary.updated }}</div>
   {% endif %}
   <form method="post" action="/admin/import" enctype="multipart/form-data" class="form">
     <input type="file" name="file" accept=".csv" required />
-    <button class="btn primary" type="submit">Import</button>
+    <button class="btn primary" type="submit">Importera</button>
   </form>
-  <a class="btn" href="/admin">Back</a>
 </section>
+
+{% if batches %}
+<section class="card">
+  <h2>Importhistorik</h2>
+  <table class="data-table">
+    <thead>
+      <tr>
+        <th>Fil</th>
+        <th>Datum</th>
+        <th>Rader</th>
+        <th>Nya</th>
+        <th>Uppdaterade</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for b in batches %}
+      <tr>
+        <td>{{ b.source_file_name }}</td>
+        <td class="attendance-time">{{ b.imported_at.strftime('%Y-%m-%d %H:%M') if b.imported_at else '' }}</td>
+        <td>{{ b.records_total }}</td>
+        <td>{{ b.records_added }}</td>
+        <td>{{ b.records_updated }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</section>
+{% endif %}
 {% endblock %}
