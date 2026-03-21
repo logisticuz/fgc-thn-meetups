@@ -1,332 +1,557 @@
-from datetime import datetime
-from sqlalchemy import or_, func
-from sqlalchemy.orm import Session
-from .models import Member, Session as MeetupSession, Checkin, Headcount, ImportBatch, AuditLog
+from datetime import datetime, date
+
+from .db import get_connection
 
 
-def get_open_session(db: Session) -> MeetupSession | None:
-    return (
-        db.query(MeetupSession)
-        .filter(MeetupSession.status == "open")
-        .order_by(MeetupSession.start_time.desc())
-        .first()
-    )
+def _row_dict(cursor, row):
+    cols = [desc[0] for desc in cursor.description]
+    return {cols[i]: row[i] for i in range(len(cols))}
 
 
-def start_session(db: Session, location: str | None, notes: str | None) -> MeetupSession:
-    current = get_open_session(db)
+def get_open_session() -> dict | None:
+    with get_connection() as conn:
+        with conn.cursor() as cur:
+            cur.execute(
+                """
+                SELECT id, start_time, end_time, location, notes, status, created_at
+                FROM meetup_sessions
+                WHERE status = 'open'
+                ORDER BY start_time DESC
+                LIMIT 1
+                """
+            )
+            row = cur.fetchone()
+            return _row_dict(cur, row) if row else None
+
+
+def start_session(location: str | None, notes: str | None) -> dict:
+    current = get_open_session()
     if current:
         return current
-    session = MeetupSession(location=location, notes=notes, status="open")
-    db.add(session)
-    db.commit()
-    db.refresh(session)
-    return session
+
+    with get_connection() as conn:
+        with conn.cursor() as cur:
+            cur.execute(
+                """
+                INSERT INTO meetup_sessions (start_time, location, notes, status)
+                VALUES (NOW(), %s, %s, 'open')
+                RETURNING id, start_time, end_time, location, notes, status, created_at
+                """,
+                (location, notes),
+            )
+            return _row_dict(cur, cur.fetchone())
 
 
-def end_session(db: Session, session: MeetupSession) -> None:
-    session.status = "closed"
-    session.end_time = datetime.utcnow()
-    db.commit()
+def end_session(session_id: int) -> None:
+    with get_connection() as conn:
+        with conn.cursor() as cur:
+            cur.execute(
+                """
+                UPDATE meetup_sessions
+                SET status = 'closed', end_time = NOW()
+                WHERE id = %s
+                """,
+                (session_id,),
+            )
 
 
-def get_member_by_token_hash(db: Session, token_hash: str) -> Member | None:
-    return db.query(Member).filter(Member.token_hash == token_hash).first()
+def get_player_by_card_id(card_id: str) -> dict | None:
+    with get_connection() as conn:
+        with conn.cursor() as cur:
+            cur.execute(
+                """
+                SELECT p.uuid, p.name, p.tag, p.email, p.telephone, p.total_events, c.card_id
+                FROM players p
+                JOIN card_ids c ON c.player_uuid = p.uuid
+                WHERE c.card_id = %s
+                LIMIT 1
+                """,
+                (card_id,),
+            )
+            row = cur.fetchone()
+            return _row_dict(cur, row) if row else None
 
 
-def get_member_by_number(db: Session, member_number: str) -> Member | None:
-    return db.query(Member).filter(Member.member_number == member_number).first()
+def get_player_by_uuid(player_uuid: str) -> dict | None:
+    with get_connection() as conn:
+        with conn.cursor() as cur:
+            cur.execute(
+                """
+                SELECT uuid, name, tag, email, telephone, total_events
+                FROM players
+                WHERE uuid = %s
+                LIMIT 1
+                """,
+                (player_uuid,),
+            )
+            row = cur.fetchone()
+            return _row_dict(cur, row) if row else None
 
 
-def search_members_by_name(db: Session, query: str) -> list[Member]:
+def search_players_by_name(query: str) -> list[dict]:
     q = query.strip().lower()
     if not q:
         return []
     like = f"%{q}%"
-    return (
-        db.query(Member)
-        .filter(or_(func.lower(Member.first_name).like(like), func.lower(Member.last_name).like(like)))
-        .limit(10)
-        .all()
-    )
+    with get_connection() as conn:
+        with conn.cursor() as cur:
+            cur.execute(
+                """
+                SELECT uuid, name, tag, email, telephone, total_events
+                FROM players
+                WHERE LOWER(COALESCE(name, '')) LIKE %s
+                   OR LOWER(COALESCE(tag, '')) LIKE %s
+                ORDER BY COALESCE(name, '') ASC
+                LIMIT 10
+                """,
+                (like, like),
+            )
+            rows = cur.fetchall()
+            return [_row_dict(cur, r) for r in rows]
 
 
-def link_token(db: Session, member: Member, token_hash: str) -> tuple[bool, str | None]:
-    existing = get_member_by_token_hash(db, token_hash)
-    if existing and existing.id != member.id:
-        return False, "Token already linked to another member"
-    member.token_hash = token_hash
-    db.commit()
-    return True, None
+def link_card(player_uuid: str, card_id: str) -> tuple[bool, str | None]:
+    with get_connection() as conn:
+        with conn.cursor() as cur:
+            cur.execute("SELECT player_uuid FROM card_ids WHERE card_id = %s", (card_id,))
+            existing = cur.fetchone()
+            if existing and existing[0] != player_uuid:
+                return False, "Kort-ID redan kopplat till annan spelare"
+            if existing and existing[0] == player_uuid:
+                return True, None
+            cur.execute(
+                "INSERT INTO card_ids (card_id, player_uuid) VALUES (%s, %s)",
+                (card_id, player_uuid),
+            )
+            return True, None
 
 
 def create_checkin(
-    db: Session,
     session_id: int,
-    member_id: int | None,
+    player_uuid: str | None,
     guest_name: str | None,
     method: str,
     created_by: str | None = None,
-) -> Checkin:
-    checkin = Checkin(
-        session_id=session_id,
-        member_id=member_id,
-        guest_name=guest_name,
-        method=method,
-        created_by=created_by,
-        checkin_time=datetime.utcnow(),
-    )
-    db.add(checkin)
-    db.commit()
-    db.refresh(checkin)
-    return checkin
+) -> dict:
+    with get_connection() as conn:
+        with conn.cursor() as cur:
+            cur.execute(
+                """
+                INSERT INTO meetup_checkins (session_id, player_uuid, guest_name, method, checkin_time, created_by)
+                VALUES (%s, %s, %s, %s, NOW(), %s)
+                RETURNING id, session_id, player_uuid, guest_name, method, checkin_time, checkout_time, created_by
+                """,
+                (session_id, player_uuid, guest_name, method, created_by),
+            )
+            return _row_dict(cur, cur.fetchone())
 
 
-def get_checkin_for_member(db: Session, session_id: int, member_id: int) -> Checkin | None:
-    return (
-        db.query(Checkin)
-        .filter(Checkin.session_id == session_id, Checkin.member_id == member_id)
-        .first()
-    )
+def get_checkin_for_player(session_id: int, player_uuid: str) -> dict | None:
+    with get_connection() as conn:
+        with conn.cursor() as cur:
+            cur.execute(
+                """
+                SELECT id, session_id, player_uuid, guest_name, method, checkin_time, checkout_time, created_by
+                FROM meetup_checkins
+                WHERE session_id = %s AND player_uuid = %s
+                LIMIT 1
+                """,
+                (session_id, player_uuid),
+            )
+            row = cur.fetchone()
+            return _row_dict(cur, row) if row else None
 
 
-def count_checkins(db: Session, session_id: int) -> int:
-    return db.query(Checkin).filter(Checkin.session_id == session_id).count()
+def count_checkins(session_id: int) -> int:
+    with get_connection() as conn:
+        with conn.cursor() as cur:
+            cur.execute("SELECT COUNT(*) FROM meetup_checkins WHERE session_id = %s", (session_id,))
+            return int(cur.fetchone()[0])
 
 
-def get_session_checkins(db: Session, session_id: int) -> list[dict]:
-    rows = (
-        db.query(Checkin, Member)
-        .outerjoin(Member, Checkin.member_id == Member.id)
-        .filter(Checkin.session_id == session_id)
-        .order_by(Checkin.checkin_time.asc())
-        .all()
-    )
+def count_present(session_id: int) -> int:
+    with get_connection() as conn:
+        with conn.cursor() as cur:
+            cur.execute(
+                """
+                SELECT COUNT(*)
+                FROM meetup_checkins
+                WHERE session_id = %s AND checkout_time IS NULL
+                """,
+                (session_id,),
+            )
+            return int(cur.fetchone()[0])
+
+
+def get_session_checkins(session_id: int) -> list[dict]:
+    with get_connection() as conn:
+        with conn.cursor() as cur:
+            cur.execute(
+                """
+                SELECT c.id, c.checkin_time, c.checkout_time, c.method, c.guest_name, p.name
+                FROM meetup_checkins c
+                LEFT JOIN players p ON p.uuid = c.player_uuid
+                WHERE c.session_id = %s
+                ORDER BY c.checkin_time ASC
+                """,
+                (session_id,),
+            )
+            rows = cur.fetchall()
+
     result = []
-    for i, (checkin, member) in enumerate(rows, 1):
-        result.append({
-            "number": i,
-            "name": f"{member.first_name} {member.last_name}" if member else checkin.guest_name or "Guest",
-            "checkin_time": checkin.checkin_time.isoformat() if checkin.checkin_time else "",
-            "checkout_time": checkin.checkout_time.isoformat() if checkin.checkout_time else "",
-            "checked_out": checkin.checkout_time is not None,
-            "method": checkin.method,
-            "checkin_id": checkin.id,
-        })
+    for idx, row in enumerate(rows, 1):
+        checkin_id, checkin_time, checkout_time, method, guest_name, player_name = row
+        result.append(
+            {
+                "number": idx,
+                "name": player_name or guest_name or "Guest",
+                "checkin_time": checkin_time.isoformat() if checkin_time else "",
+                "checkout_time": checkout_time.isoformat() if checkout_time else "",
+                "checked_out": checkout_time is not None,
+                "method": method,
+                "checkin_id": checkin_id,
+            }
+        )
     return result
 
 
-def checkout_member(db: Session, session_id: int, member_id: int) -> Checkin | None:
-    checkin = get_checkin_for_member(db, session_id, member_id)
-    if not checkin or checkin.checkout_time is not None:
-        return None
-    checkin.checkout_time = datetime.utcnow()
-    db.commit()
-    db.refresh(checkin)
-    return checkin
+def checkout_player(session_id: int, player_uuid: str) -> dict | None:
+    with get_connection() as conn:
+        with conn.cursor() as cur:
+            cur.execute(
+                """
+                UPDATE meetup_checkins
+                SET checkout_time = NOW()
+                WHERE id = (
+                    SELECT id
+                    FROM meetup_checkins
+                    WHERE session_id = %s
+                      AND player_uuid = %s
+                      AND checkout_time IS NULL
+                    LIMIT 1
+                )
+                RETURNING id, session_id, player_uuid, guest_name, method, checkin_time, checkout_time, created_by
+                """,
+                (session_id, player_uuid),
+            )
+            row = cur.fetchone()
+            return _row_dict(cur, row) if row else None
 
 
-def count_present(db: Session, session_id: int) -> int:
-    return (
-        db.query(Checkin)
-        .filter(Checkin.session_id == session_id, Checkin.checkout_time.is_(None))
-        .count()
-    )
+def create_headcount(session_id: int, count: int, created_by: str | None = None) -> dict:
+    with get_connection() as conn:
+        with conn.cursor() as cur:
+            cur.execute(
+                """
+                INSERT INTO meetup_headcounts (session_id, count, recorded_at, created_by)
+                VALUES (%s, %s, NOW(), %s)
+                RETURNING id, session_id, count, recorded_at, created_by
+                """,
+                (session_id, count, created_by),
+            )
+            return _row_dict(cur, cur.fetchone())
 
 
-def create_headcount(db: Session, session_id: int, count: int, created_by: str | None = None) -> Headcount:
-    hc = Headcount(
-        session_id=session_id,
-        count=count,
-        created_by=created_by,
-    )
-    db.add(hc)
-    db.commit()
-    db.refresh(hc)
-    return hc
+def get_session_headcounts(session_id: int) -> list[dict]:
+    with get_connection() as conn:
+        with conn.cursor() as cur:
+            cur.execute(
+                """
+                SELECT count, recorded_at
+                FROM meetup_headcounts
+                WHERE session_id = %s
+                ORDER BY recorded_at ASC
+                """,
+                (session_id,),
+            )
+            rows = cur.fetchall()
 
-
-def get_session_headcounts(db: Session, session_id: int) -> list[dict]:
-    rows = (
-        db.query(Headcount)
-        .filter(Headcount.session_id == session_id)
-        .order_by(Headcount.recorded_at.asc())
-        .all()
-    )
     return [
         {
-            "count": hc.count,
-            "recorded_at": hc.recorded_at.isoformat() if hc.recorded_at else "",
+            "count": row[0],
+            "recorded_at": row[1].isoformat() if row[1] else "",
         }
-        for hc in rows
+        for row in rows
     ]
 
 
-def get_all_sessions(db: Session) -> list[dict]:
-    sessions = (
-        db.query(MeetupSession)
-        .order_by(MeetupSession.start_time.desc())
-        .all()
-    )
-    result = []
-    for s in sessions:
-        total = db.query(Checkin).filter(Checkin.session_id == s.id).count()
-        result.append({
-            "id": s.id,
-            "start_time": s.start_time,
-            "end_time": s.end_time,
-            "location": s.location or "",
-            "status": s.status,
-            "notes": s.notes or "",
-            "total_checkins": total,
-        })
-    return result
+def get_all_sessions() -> list[dict]:
+    with get_connection() as conn:
+        with conn.cursor() as cur:
+            cur.execute(
+                """
+                SELECT s.id, s.start_time, s.end_time, COALESCE(s.location, '') AS location,
+                       COALESCE(s.notes, '') AS notes, s.status, COUNT(c.id) AS total_checkins
+                FROM meetup_sessions s
+                LEFT JOIN meetup_checkins c ON c.session_id = s.id
+                GROUP BY s.id
+                ORDER BY s.start_time DESC
+                """
+            )
+            rows = cur.fetchall()
+            cols = [desc[0] for desc in cur.description]
+            return [{cols[i]: r[i] for i in range(len(cols))} for r in rows]
 
 
-def delete_checkin(db: Session, checkin_id: int) -> bool:
-    checkin = db.query(Checkin).filter(Checkin.id == checkin_id).first()
-    if not checkin:
-        return False
-    db.delete(checkin)
-    db.commit()
-    return True
+def get_session_by_id(session_id: int) -> dict | None:
+    with get_connection() as conn:
+        with conn.cursor() as cur:
+            cur.execute(
+                """
+                SELECT id, start_time, end_time, location, notes, status, created_at
+                FROM meetup_sessions
+                WHERE id = %s
+                LIMIT 1
+                """,
+                (session_id,),
+            )
+            row = cur.fetchone()
+            return _row_dict(cur, row) if row else None
 
 
-def upsert_member(db: Session, data: dict) -> bool:
-    member_number = data.get("member_number")
-    member = None
-    if member_number:
-        member = get_member_by_number(db, member_number)
-    if not member:
-        member = Member(**data)
-        db.add(member)
-        return True
-
-    for key, value in data.items():
-        if value is None or value == "":
-            continue
-        if key == "token_hash":
-            continue
-        setattr(member, key, value)
-    return False
+def delete_checkin(checkin_id: int) -> bool:
+    with get_connection() as conn:
+        with conn.cursor() as cur:
+            cur.execute("DELETE FROM meetup_checkins WHERE id = %s", (checkin_id,))
+            return cur.rowcount > 0
 
 
-# --- Member list ---
-
-def get_all_members(db: Session, search: str | None = None) -> list[Member]:
-    q = db.query(Member)
+def get_all_members(search: str | None = None) -> list[dict]:
+    conditions = []
+    params = []
     if search:
         like = f"%{search.strip().lower()}%"
-        q = q.filter(
-            or_(
-                func.lower(Member.first_name).like(like),
-                func.lower(Member.last_name).like(like),
-                func.lower(Member.member_number).like(like),
-                func.lower(Member.display_name).like(like),
-            )
+        conditions.append(
+            "(LOWER(COALESCE(p.name, '')) LIKE %s OR LOWER(COALESCE(p.tag, '')) LIKE %s OR LOWER(COALESCE(p.email, '')) LIKE %s)"
         )
-    return q.order_by(Member.last_name, Member.first_name).all()
+        params.extend([like, like, like])
+
+    where_sql = f"WHERE {' AND '.join(conditions)}" if conditions else ""
+
+    with get_connection() as conn:
+        with conn.cursor() as cur:
+            cur.execute(
+                f"""
+                SELECT p.uuid, p.name, p.tag, p.email, p.telephone, p.total_events,
+                       COUNT(c.card_id) AS card_count
+                FROM players p
+                LEFT JOIN card_ids c ON c.player_uuid = p.uuid
+                {where_sql}
+                GROUP BY p.uuid
+                ORDER BY COALESCE(p.name, '') ASC
+                """,
+                params,
+            )
+            rows = cur.fetchall()
+            cols = [desc[0] for desc in cur.description]
+            return [{cols[i]: r[i] for i in range(len(cols))} for r in rows]
 
 
-# --- Import batch ---
-
-def create_import_batch(db: Session, filename: str, file_hash: str, total: int, added: int, updated: int) -> ImportBatch:
-    batch = ImportBatch(
-        source_file_name=filename,
-        source_file_hash=file_hash,
-        records_total=total,
-        records_added=added,
-        records_updated=updated,
-    )
-    db.add(batch)
-    db.commit()
-    db.refresh(batch)
-    return batch
+def log_action(action: str, detail: str | None = None, created_by: str | None = None) -> None:
+    with get_connection() as conn:
+        with conn.cursor() as cur:
+            cur.execute(
+                """
+                INSERT INTO audit_log (timestamp, user_name, action, target_table, details)
+                VALUES (NOW(), %s, %s, 'meetups', %s)
+                """,
+                (created_by or "system", action, detail),
+            )
 
 
-def get_import_batches(db: Session) -> list[ImportBatch]:
-    return db.query(ImportBatch).order_by(ImportBatch.imported_at.desc()).all()
+def get_audit_log(limit: int = 50) -> list[dict]:
+    with get_connection() as conn:
+        with conn.cursor() as cur:
+            cur.execute(
+                """
+                SELECT timestamp AS created_at, action, details AS detail, user_name AS created_by
+                FROM audit_log
+                WHERE target_table = 'meetups'
+                ORDER BY timestamp DESC
+                LIMIT %s
+                """,
+                (limit,),
+            )
+            rows = cur.fetchall()
+            cols = [desc[0] for desc in cur.description]
+            return [{cols[i]: r[i] for i in range(len(cols))} for r in rows]
 
 
-# --- Audit log ---
+def get_overview_stats() -> dict:
+    with get_connection() as conn:
+        with conn.cursor() as cur:
+            cur.execute("SELECT COUNT(*) FROM players")
+            total_members = int(cur.fetchone()[0])
 
-def log_action(db: Session, action: str, detail: str | None = None, created_by: str | None = None) -> None:
-    entry = AuditLog(action=action, detail=detail, created_by=created_by)
-    db.add(entry)
-    db.commit()
+            cur.execute("SELECT COUNT(*) FROM meetup_sessions WHERE status = 'closed'")
+            total_sessions = int(cur.fetchone()[0])
 
+            cur.execute("SELECT COUNT(*) FROM meetup_checkins")
+            total_checkins = int(cur.fetchone()[0])
 
-def get_audit_log(db: Session, limit: int = 50) -> list[AuditLog]:
-    return db.query(AuditLog).order_by(AuditLog.created_at.desc()).limit(limit).all()
+            cur.execute(
+                """
+                SELECT p.name, COUNT(c.id) AS cnt
+                FROM meetup_checkins c
+                JOIN players p ON p.uuid = c.player_uuid
+                GROUP BY p.uuid
+                ORDER BY cnt DESC
+                LIMIT 1
+                """
+            )
+            most_active = cur.fetchone()
 
-
-# --- Statistics ---
-
-def get_session_stats(db: Session, limit: int = 20) -> list[dict]:
-    sessions = (
-        db.query(MeetupSession)
-        .filter(MeetupSession.status == "closed")
-        .order_by(MeetupSession.start_time.desc())
-        .limit(limit)
-        .all()
-    )
-    result = []
-    for s in sessions:
-        total = db.query(Checkin).filter(Checkin.session_id == s.id).count()
-        peak = db.query(func.max(Headcount.count)).filter(Headcount.session_id == s.id).scalar() or 0
-        result.append({
-            "date": s.start_time.strftime("%Y-%m-%d") if s.start_time else "",
-            "weekday": s.start_time.strftime("%A") if s.start_time else "",
-            "total_checkins": total,
-            "peak_headcount": peak,
-        })
-    return result
-
-
-def get_member_stats(db: Session) -> list[dict]:
-    members = db.query(Member).all()
-    result = []
-    for m in members:
-        checkins = db.query(Checkin).filter(Checkin.member_id == m.id).all()
-        if not checkins:
-            continue
-        total_sessions = len(checkins)
-        last = max(c.checkin_time for c in checkins if c.checkin_time)
-        durations = []
-        for c in checkins:
-            if c.checkin_time and c.checkout_time:
-                dur = (c.checkout_time - c.checkin_time).total_seconds() / 60
-                durations.append(dur)
-        avg_dur = round(sum(durations) / len(durations)) if durations else None
-        result.append({
-            "name": f"{m.first_name} {m.last_name}",
-            "total_sessions": total_sessions,
-            "last_attended": last.strftime("%Y-%m-%d") if last else "",
-            "avg_duration_minutes": avg_dur,
-        })
-    result.sort(key=lambda x: x["total_sessions"], reverse=True)
-    return result
-
-
-def get_overview_stats(db: Session) -> dict:
-    total_members = db.query(Member).count()
-    total_sessions = db.query(MeetupSession).filter(MeetupSession.status == "closed").count()
-    total_checkins = db.query(Checkin).count()
     avg = round(total_checkins / total_sessions, 1) if total_sessions > 0 else 0
-
-    most_active = (
-        db.query(Member.first_name, Member.last_name, func.count(Checkin.id).label("cnt"))
-        .join(Checkin, Checkin.member_id == Member.id)
-        .group_by(Member.id)
-        .order_by(func.count(Checkin.id).desc())
-        .first()
-    )
-    most_active_name = f"{most_active[0]} {most_active[1]}" if most_active else "—"
-
     return {
         "total_members": total_members,
         "total_sessions": total_sessions,
         "total_checkins": total_checkins,
         "avg_per_session": avg,
-        "most_active": most_active_name,
+        "most_active": most_active[0] if most_active else "-",
     }
+
+
+def get_session_stats(limit: int = 20) -> list[dict]:
+    with get_connection() as conn:
+        with conn.cursor() as cur:
+            cur.execute(
+                """
+                SELECT s.id, s.start_time,
+                       COUNT(c.id) AS total_checkins,
+                       COALESCE(MAX(h.count), 0) AS peak_headcount
+                FROM meetup_sessions s
+                LEFT JOIN meetup_checkins c ON c.session_id = s.id
+                LEFT JOIN meetup_headcounts h ON h.session_id = s.id
+                WHERE s.status = 'closed'
+                GROUP BY s.id
+                ORDER BY s.start_time DESC
+                LIMIT %s
+                """,
+                (limit,),
+            )
+            rows = cur.fetchall()
+
+    result = []
+    for _, start_time, total_checkins, peak_headcount in rows:
+        result.append(
+            {
+                "date": start_time.strftime("%Y-%m-%d") if start_time else "",
+                "weekday": start_time.strftime("%A") if start_time else "",
+                "total_checkins": int(total_checkins or 0),
+                "peak_headcount": int(peak_headcount or 0),
+            }
+        )
+    return result
+
+
+def get_member_stats() -> list[dict]:
+    with get_connection() as conn:
+        with conn.cursor() as cur:
+            cur.execute(
+                """
+                SELECT p.name,
+                       COUNT(c.id) AS total_sessions,
+                       MAX(c.checkin_time) AS last_attended,
+                       AVG(
+                           CASE
+                               WHEN c.checkout_time IS NOT NULL
+                               THEN EXTRACT(EPOCH FROM (c.checkout_time - c.checkin_time)) / 60
+                               ELSE NULL
+                           END
+                       ) AS avg_duration_minutes
+                FROM players p
+                JOIN meetup_checkins c ON c.player_uuid = p.uuid
+                GROUP BY p.uuid
+                ORDER BY total_sessions DESC
+                """
+            )
+            rows = cur.fetchall()
+
+    result = []
+    for name, total_sessions, last_attended, avg_duration_minutes in rows:
+        result.append(
+            {
+                "name": name,
+                "total_sessions": int(total_sessions or 0),
+                "last_attended": last_attended.strftime("%Y-%m-%d") if last_attended else "",
+                "avg_duration_minutes": round(avg_duration_minutes) if avg_duration_minutes is not None else None,
+            }
+        )
+    return result
+
+
+def get_member_streak(player_uuid: str) -> int:
+    with get_connection() as conn:
+        with conn.cursor() as cur:
+            cur.execute(
+                """
+                SELECT id
+                FROM meetup_sessions
+                WHERE status = 'closed'
+                ORDER BY start_time DESC
+                """
+            )
+            session_ids = [row[0] for row in cur.fetchall()]
+
+            streak = 0
+            for session_id in session_ids:
+                cur.execute(
+                    """
+                    SELECT 1
+                    FROM meetup_checkins
+                    WHERE session_id = %s AND player_uuid = %s
+                    LIMIT 1
+                    """,
+                    (session_id, player_uuid),
+                )
+                if cur.fetchone():
+                    streak += 1
+                else:
+                    break
+            return streak
+
+
+def get_checkins_for_export(start_date: date, end_date: date) -> list[dict]:
+    with get_connection() as conn:
+        with conn.cursor() as cur:
+            cur.execute(
+                """
+                SELECT s.start_time, s.end_time,
+                       p.uuid, p.name,
+                       c.guest_name, c.checkin_time, c.checkout_time, c.method
+                FROM meetup_checkins c
+                JOIN meetup_sessions s ON s.id = c.session_id
+                LEFT JOIN players p ON p.uuid = c.player_uuid
+                WHERE s.start_time >= %s::date
+                  AND s.start_time <= (%s::date + INTERVAL '1 day' - INTERVAL '1 second')
+                ORDER BY s.start_time ASC, c.checkin_time ASC
+                """,
+                (start_date, end_date),
+            )
+            rows = cur.fetchall()
+
+    result = []
+    for row in rows:
+        (
+            session_start,
+            session_end,
+            player_uuid,
+            player_name,
+            guest_name,
+            checkin_time,
+            checkout_time,
+            method,
+        ) = row
+        result.append(
+            {
+                "session_start": session_start,
+                "session_end": session_end,
+                "player_uuid": player_uuid,
+                "player_name": player_name,
+                "guest_name": guest_name,
+                "checkin_time": checkin_time,
+                "checkout_time": checkout_time,
+                "method": method,
+            }
+        )
+    return result

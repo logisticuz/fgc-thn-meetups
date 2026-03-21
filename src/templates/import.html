@@ -2,10 +2,10 @@
 {% block content %}
 <section class="card">
   <div class="history-header">
-    <h2>Importera medlemmar</h2>
+  <h2>Import</h2>
     <a class="btn" href="/admin">&larr; Admin</a>
   </div>
-  <p>Exportera från eBas och spara som CSV innan du laddar upp.</p>
+  <p>Import är flyttad till fgt-checkin-system där players + card_ids hanteras.</p>
   {% if error %}
     <div class="error">{{ error }}</div>
   {% endif %}
@@ -14,7 +14,7 @@
   {% endif %}
   <form method="post" action="/admin/import" enctype="multipart/form-data" class="form">
     <input type="file" name="file" accept=".csv" required />
-    <button class="btn primary" type="submit">Importera</button>
+    <button class="btn" type="submit">Kontrollera fil</button>
   </form>
 </section>
 

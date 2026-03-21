@@ -2,8 +2,8 @@
 {% block content %}
 <section class="card kiosk-card">
   <div class="kiosk-header">
-    <h1>Weekly meetup check-in</h1>
-    <p>Show your Sverok QR to the camera.</p>
+    <h1>Meetup check-in</h1>
+    <p>Skanna ditt FGC-medlemskort for att checka in.</p>
   </div>
 
   <div id="session-start" class="panel" {% if open_session %}style="display:none"{% endif %}>
@@ -27,21 +27,31 @@
         <div class="checkin-counter secondary">Totalt: <span id="counter-value">0</span></div>
       </div>
     </div>
-    <video id="camera" playsinline autoplay muted></video>
+    <div id="qr-reader"></div>
+    <video id="camera" playsinline autoplay muted style="display:none"></video>
     <div class="scan-hint" id="scan-hint">
-      Visa din Sverok QR-kod för kameran.
+      Skanna ditt medlemskort for att checka in.
     </div>
     <div class="scan-result" id="scan-result"></div>
     <div class="link-form" id="link-form" style="display:none">
-      <p>QR okänd — skriv medlemsnummer eller namn för att koppla:</p>
+      <p>QR okand — skriv namn eller tag for att koppla:</p>
       <div class="link-form-row">
-        <input id="link-input" type="text" placeholder="Medlemsnummer eller namn" />
+        <input id="link-input" type="text" placeholder="Namn eller tag" />
         <button id="link-btn" class="btn primary">Koppla</button>
       </div>
       <div class="link-result" id="link-result"></div>
     </div>
+
+    <div class="idle-overlay" id="idle-overlay" style="display:none">
+      <div class="idle-content">
+        <div class="idle-count" id="idle-count">0</div>
+        <div class="idle-label">incheckade idag</div>
+        <div class="idle-hint">Skanna ditt medlemskort for att checka in</div>
+      </div>
+    </div>
   </div>
 </section>
 
+<script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
 <script src="/static/kiosk.js"></script>
 {% endblock %}

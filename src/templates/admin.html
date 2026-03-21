@@ -27,14 +27,14 @@
       <div class="success">{{ message }}</div>
     {% endif %}
     <form method="post" action="/admin/manual" class="form">
-      <label>Medlemsnummer</label>
-      <input name="member_number" type="text" placeholder="Medlemsnummer" />
-      <label>Namn (valfritt)</label>
+      <label>Spelar-ID / kort-ID</label>
+      <input name="member_number" type="text" placeholder="UUID eller kort-ID" />
+      <label>Spelarnamn eller tag (valfritt)</label>
       <input name="full_name" type="text" placeholder="Förnamn Efternamn" />
       <label>Gästnamn (valfritt)</label>
       <input name="guest_name" type="text" placeholder="Gästnamn" />
-      <label>QR-data (valfritt, för att koppla token)</label>
-      <input name="qr_data" type="text" placeholder="Klistra in QR-URL eller token" />
+      <label>QR-data (valfritt, för att koppla kort-ID)</label>
+      <input name="qr_data" type="text" placeholder="Klistra in kort-URL eller kort-ID" />
       <button class="btn primary" type="submit">Checka in</button>
     </form>
   </div>
@@ -57,14 +57,14 @@
   </div>
 
   <div class="card">
-    <h2>Medlemmar</h2>
-    <p>Se alla importerade medlemmar.</p>
-    <a class="btn" href="/admin/members">Medlemslista</a>
+    <h2>Spelare</h2>
+    <p>Se alla spelare från delad Postgres.</p>
+    <a class="btn" href="/admin/members">Spelarlista</a>
   </div>
 
   <div class="card">
     <h2>Import</h2>
-    <p>Importera medlemmar från eBas CSV.</p>
+    <p>Import hanteras i turneringssystemet.</p>
     <a class="btn" href="/admin/import">Importera</a>
   </div>
 

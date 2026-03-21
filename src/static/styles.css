@@ -69,6 +69,7 @@ body {
 .kiosk-card {
   max-width: 900px;
   margin: 0 auto;
+  position: relative;
 }
 
 .kiosk-header h1 {
@@ -111,6 +112,19 @@ body {
   background: rgba(0, 212, 255, 0.2);
   border-color: var(--accent);
   color: var(--accent);
+}
+
+#qr-reader {
+  width: 100%;
+  max-width: 500px;
+  margin: 0 auto;
+  border-radius: 12px;
+  overflow: hidden;
+  border: 1px solid var(--border);
+}
+
+#qr-reader video {
+  display: block !important;
 }
 
 video {
@@ -451,6 +465,44 @@ input[type="file"] {
   display: flex;
   align-items: center;
   gap: 8px;
+}
+
+.idle-overlay {
+  position: absolute;
+  inset: 0;
+  background: rgba(10, 10, 15, 0.95);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 16px;
+  z-index: 10;
+  cursor: pointer;
+}
+
+.idle-content {
+  text-align: center;
+}
+
+.idle-count {
+  font-size: 96px;
+  font-weight: 700;
+  color: var(--accent);
+  line-height: 1;
+}
+
+.idle-label {
+  font-size: 24px;
+  color: var(--muted);
+  margin-top: 8px;
+  text-transform: uppercase;
+  letter-spacing: 2px;
+}
+
+.idle-hint {
+  margin-top: 24px;
+  color: var(--muted);
+  font-size: 16px;
+  opacity: 0.6;
 }
 
 @media (max-width: 720px) {

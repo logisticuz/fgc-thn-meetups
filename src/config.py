@@ -1,8 +1,9 @@
 from dataclasses import dataclass
 import os
-from pathlib import Path
+import warnings
 
-BASE_DIR = Path(__file__).resolve().parent.parent
+_WEAK_DEFAULTS = {"fgcthn2016", "change-me", ""}
+
 
 @dataclass(frozen=True)
 class Settings:
@@ -10,7 +11,14 @@ class Settings:
     secret_key: str = os.getenv("SECRET_KEY", "change-me")
     database_url: str = os.getenv(
         "DATABASE_URL",
-        f"sqlite:///{BASE_DIR / 'data' / 'meetups.db'}",
+        "postgresql://fgc:devpassword@postgres:5432/fgc_checkin",
     )
+
+    def __post_init__(self):
+        if self.admin_pin in _WEAK_DEFAULTS:
+            warnings.warn("ADMIN_PIN is using a weak default — set a strong value in .env", stacklevel=2)
+        if self.secret_key in _WEAK_DEFAULTS:
+            warnings.warn("SECRET_KEY is using a weak default — set a strong value in .env", stacklevel=2)
+
 
 settings = Settings()

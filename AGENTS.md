@@ -2,36 +2,58 @@
 
 ## Project Structure & Module Organization
 
-- `src/` contains the FastAPI app. Key modules include `main.py` (routes), `crud.py` (database operations), `models.py` (SQLAlchemy models), `db.py` (engine/session), and `config.py` (settings). Templates live in `src/templates/` and static assets in `src/static/`.
-- `docs/` holds requirements, flow docs, and wireframes.
-- `data/` stores the local SQLite database and CSV exports.
-- `assets/` contains branding and QR-related assets.
-- `scripts/` contains helper scripts.
-- `.env.example` documents expected environment variables.
+- `src/` contains the FastAPI app:
+  - `main.py` — app init, middleware, router mounts
+  - `db.py` — psycopg3 connection pool (lazy-init, min=1/max=5)
+  - `crud.py` — all database operations as raw SQL against Postgres
+  - `deps.py` — helpers: templates, auth (admin PIN), `extract_card_id()`
+  - `config.py` — settings from environment variables
+  - `routers/` — kiosk, admin, reports
+- `src/templates/` — Jinja2 templates
+- `src/static/` — CSS, JS
+- `docs/` — original requirements and flow docs (pre-migration)
+
+## Database
+
+This system connects to a **shared Postgres** database owned by `fgt-checkin-system`. Tables used:
+
+- `players` — shared player table (READ only from this system)
+- `card_ids` — maps card IDs to player UUIDs (READ only)
+- `meetup_sessions` — meetup session lifecycle
+- `meetup_checkins` — per-player/guest checkins within a session
+- `meetup_headcounts` — manual head counts
+
+**Pattern:** raw SQL with `psycopg3` + `psycopg_pool.ConnectionPool`. No ORM.
+All `crud.py` functions manage their own connections from the pool.
 
 ## Build, Test, and Development Commands
 
-- `python -m venv .venv` creates a virtual environment.
-- `\.\.venv\Scripts\Activate.ps1` activates the venv on Windows.
-- `pip install -r requirements.txt` installs runtime dependencies.
-- `uvicorn src.main:app --reload` runs the app locally with auto-reload.
+- `docker compose -p fgt-meetup-dev -f docker-compose.dev.yml up --build` — run with Docker
+- `pip install -r requirements.txt` — install runtime deps
+- `uvicorn src.main:app --reload` — run locally (needs Postgres accessible)
+- `pip install -r requirements-dev.txt && pytest` — run tests
 
 ## Coding Style & Naming Conventions
 
-- Python: 4-space indentation, `snake_case` for functions/vars, `PascalCase` for classes (follow `src/*.py`).
-- JS/CSS: 2-space indentation, `camelCase` in JS, `kebab-case` for CSS class names.
-- Templates: keep Jinja2 templates in `src/templates/` and static files in `src/static/`.
+- Python: 4-space indent, `snake_case` for functions/vars, `PascalCase` for classes
+- JS/CSS: 2-space indent, `camelCase` in JS, `kebab-case` for CSS classes
+- SQL: UPPERCASE keywords, lowercase table/column names
+- Templates: Jinja2 in `src/templates/`, static in `src/static/`
 
-## Testing Guidelines
+## Key Terminology
 
-- No testing framework or coverage requirements are defined yet. If you add tests, prefer a `tests/` package and document the test command in `README.md`.
+- **Player** (not "member") — a person in the `players` table
+- **Card ID** — short ID like `FGC-A7K9X2` linking to a player (from membership card system)
+- **Session** — a meetup event (open → closed lifecycle)
+- **Checkin** — a player or guest registering attendance at a session
 
 ## Commit & Pull Request Guidelines
 
-- No Git history is available in this workspace, so no established commit convention was found. Use short, imperative messages (for example: "Add member import validation").
-- For PRs, include a concise summary, link any related issues, and add screenshots for kiosk/admin UI changes.
+- Short, imperative commit messages ("Add headcount tracking", "Fix checkout logic")
+- PRs: concise summary, link related issues, screenshots for UI changes
+- Migration branch: `feature/postgres-migration`
 
-## Configuration & Data
+## Configuration
 
-- Runtime settings come from environment variables: `ADMIN_PIN`, `SECRET_KEY`, `DATABASE_URL`. Defaults are defined in `src/config.py`.
-- The default database is `data/meetups.db`; avoid committing real attendee data.
+Runtime settings from env vars: `DATABASE_URL`, `ADMIN_PIN`, `SECRET_KEY`.
+Defaults in `src/config.py`. See `.env.example`.

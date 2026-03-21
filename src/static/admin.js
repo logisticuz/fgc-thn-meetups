@@ -31,25 +31,71 @@ async function deleteCheckin(checkinId) {
   loadAttendance();
 }
 
+function clearChildren(el) {
+  while (el.firstChild) el.removeChild(el.firstChild);
+}
+
+function el(tag, attrs, children) {
+  const node = document.createElement(tag);
+  if (attrs) {
+    for (const [k, v] of Object.entries(attrs)) {
+      if (k === "textContent") { node.textContent = v; }
+      else if (k.startsWith("on")) { node.addEventListener(k.slice(2), v); }
+      else if (k === "className") { node.className = v; }
+      else { node.setAttribute(k, v); }
+    }
+  }
+  if (children) {
+    for (const child of children) {
+      node.appendChild(typeof child === "string" ? document.createTextNode(child) : child);
+    }
+  }
+  return node;
+}
+
 async function loadAttendance() {
   if (!attendanceContainer) return;
   try {
     const res = await fetch("/api/sessions/attendance");
     const data = await res.json();
     if (!data.open || data.total === 0) {
-      attendanceContainer.innerHTML = '<p class="attendance-empty">Ingen aktiv session eller inga incheckade.</p>';
+      clearChildren(attendanceContainer);
+      attendanceContainer.appendChild(el("p", { className: "attendance-empty", textContent: "Ingen aktiv session eller inga incheckade." }));
       return;
     }
-    const items = data.checkins.map((c) => {
+
+    const summaryP = el("p", { style: "margin-bottom:8px" }, [
+      el("span", { style: "color:var(--accent);font-weight:700;", textContent: `${data.present} här nu` }),
+      " ",
+      el("span", { style: "color:var(--muted)", textContent: `· ${data.total} totalt` }),
+    ]);
+
+    const ul = el("ul", { className: "attendance-list" });
+    for (const c of data.checkins) {
       const time = c.checkin_time ? new Date(c.checkin_time).toLocaleTimeString("sv-SE", { hour: "2-digit", minute: "2-digit" }) : "";
       const outTime = c.checkout_time ? new Date(c.checkout_time).toLocaleTimeString("sv-SE", { hour: "2-digit", minute: "2-digit" }) : "";
       const statusClass = c.checked_out ? "checkout-out" : "checkout-in";
       const statusText = c.checked_out ? `ut ${outTime}` : "här";
-      return `<li class="${statusClass}"><span><span class="attendance-number">#${c.number}</span>${c.name}</span><span class="attendance-actions"><span class="attendance-time">${time} · ${statusText}</span><button class="btn-delete" onclick="deleteCheckin(${c.checkin_id})" title="Ta bort">&times;</button></span></li>`;
-    });
-    attendanceContainer.innerHTML = `<p style="margin-bottom:8px"><span style="color:var(--accent);font-weight:700;">${data.present} här nu</span> <span style="color:var(--muted)">· ${data.total} totalt</span></p><ul class="attendance-list">${items.join("")}</ul>`;
+
+      const li = el("li", { className: statusClass }, [
+        el("span", {}, [
+          el("span", { className: "attendance-number", textContent: `#${c.number}` }),
+          c.name,
+        ]),
+        el("span", { className: "attendance-actions" }, [
+          el("span", { className: "attendance-time", textContent: `${time} · ${statusText}` }),
+          el("button", { className: "btn-delete", title: "Ta bort", textContent: "\u00d7", onclick: () => deleteCheckin(c.checkin_id) }),
+        ]),
+      ]);
+      ul.appendChild(li);
+    }
+
+    clearChildren(attendanceContainer);
+    attendanceContainer.appendChild(summaryP);
+    attendanceContainer.appendChild(ul);
   } catch (err) {
-    attendanceContainer.innerHTML = '<p class="attendance-empty">Kunde inte ladda närvarolistan.</p>';
+    clearChildren(attendanceContainer);
+    attendanceContainer.appendChild(el("p", { className: "attendance-empty", textContent: "Kunde inte ladda närvarolistan." }));
   }
 }
 
@@ -59,14 +105,20 @@ async function loadHeadcounts() {
     const res = await fetch("/api/headcount");
     const data = await res.json();
     if (!data.headcounts || data.headcounts.length === 0) {
-      headcountLog.innerHTML = '<p class="attendance-empty" style="margin-top:10px">Inga registreringar.</p>';
+      clearChildren(headcountLog);
+      headcountLog.appendChild(el("p", { className: "attendance-empty", style: "margin-top:10px", textContent: "Inga registreringar." }));
       return;
     }
-    const items = data.headcounts.map((hc) => {
+    const ul = el("ul", { className: "attendance-list", style: "margin-top:10px" });
+    for (const hc of data.headcounts) {
       const time = hc.recorded_at ? new Date(hc.recorded_at).toLocaleTimeString("sv-SE", { hour: "2-digit", minute: "2-digit" }) : "";
-      return `<li><span class="attendance-number">${hc.count} pers</span><span class="attendance-time">${time}</span></li>`;
-    });
-    headcountLog.innerHTML = `<ul class="attendance-list" style="margin-top:10px">${items.join("")}</ul>`;
+      ul.appendChild(el("li", {}, [
+        el("span", { className: "attendance-number", textContent: `${hc.count} pers` }),
+        el("span", { className: "attendance-time", textContent: time }),
+      ]));
+    }
+    clearChildren(headcountLog);
+    headcountLog.appendChild(ul);
   } catch (err) { /* ignore */ }
 }
 

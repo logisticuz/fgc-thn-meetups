@@ -2,49 +2,49 @@
 {% block content %}
 <section class="card">
   <div class="history-header">
-    <h2>Medlemmar</h2>
+    <h2>Spelare</h2>
     <a class="btn" href="/admin">&larr; Admin</a>
   </div>
 
   <form method="get" action="/admin/members" class="search-bar">
-    <input type="text" name="q" value="{{ search }}" placeholder="Sök namn, nummer, nick..." />
+    <input type="text" name="q" value="{{ search }}" placeholder="Sök namn, tag, email..." />
     <button class="btn primary" type="submit">Sök</button>
     {% if search %}
     <a class="btn" href="/admin/members">Rensa</a>
     {% endif %}
   </form>
 
-  <p style="color:var(--muted);margin-bottom:12px">{{ total }} medlemmar</p>
+  <p style="color:var(--muted);margin-bottom:12px">{{ total }} spelare</p>
 
   {% if members %}
   <table class="data-table">
     <thead>
       <tr>
-        <th>Nr</th>
+        <th>UUID</th>
         <th>Namn</th>
-        <th>Nick</th>
-        <th>Ort</th>
-        <th>Medlem sedan</th>
-        <th>QR</th>
-        <th>Källa</th>
+        <th>Tag</th>
+        <th>Email</th>
+        <th>Telefon</th>
+        <th>Events</th>
+        <th>Kort</th>
       </tr>
     </thead>
     <tbody>
       {% for m in members %}
       <tr>
-        <td>{{ m.member_number or '—' }}</td>
-        <td>{{ m.first_name }} {{ m.last_name }}</td>
-        <td>{{ m.display_name or '' }}</td>
-        <td>{{ m.city or '' }}</td>
-        <td>{{ m.membership_start.isoformat() if m.membership_start else '—' }}</td>
-        <td>{% if m.token_hash %}<span class="badge">QR</span>{% endif %}</td>
-        <td>{{ m.source }}</td>
+        <td class="attendance-time">{{ m.uuid }}</td>
+        <td>{{ m.name or '—' }}</td>
+        <td>{{ m.tag or '' }}</td>
+        <td>{{ m.email or '' }}</td>
+        <td>{{ m.telephone or '' }}</td>
+        <td>{{ m.total_events or 0 }}</td>
+        <td>{% if m.card_count and m.card_count > 0 %}<span class="badge">{{ m.card_count }}</span>{% else %}—{% endif %}</td>
       </tr>
       {% endfor %}
     </tbody>
   </table>
   {% else %}
-  <p class="attendance-empty">Inga medlemmar hittades.</p>
+  <p class="attendance-empty">Inga spelare hittades.</p>
   {% endif %}
 </section>
 {% endblock %}

@@ -3,21 +3,33 @@ __pycache__/
 *.pyc
 .venv/
 
-# Claude
+# Claude / AI agent context
 .claude/
+GEMINI.md
+
+# Database files
+*.db
 
 # Local data and exports
 /data/local/
 /data/exports/
-/data/*.db
 
 # Env files
 .env
 .env.*
+!.env.example
 
-# Common build outputs
+# Build outputs
 /dist/
 /build/
 
 # JS deps
 /node_modules/
+
+# IDE
+.idea/
+.vscode/
+
+# OS
+Thumbs.db
+.DS_Store
