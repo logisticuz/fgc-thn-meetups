@@ -13,8 +13,20 @@ const linkResult = document.getElementById("link-result");
 const idleOverlay = document.getElementById("idle-overlay");
 const idleCount = document.getElementById("idle-count");
 
+const registerModal = document.getElementById("register-modal");
+const regTag = document.getElementById("reg-tag");
+const regPnr = document.getElementById("reg-pnr");
+const regPhone = document.getElementById("reg-phone");
+const regEmail = document.getElementById("reg-email");
+const regSubmit = document.getElementById("reg-submit");
+const regCancel = document.getElementById("reg-cancel");
+const regResult = document.getElementById("register-result");
+const regPnrError = document.getElementById("reg-pnr-error");
+const regGuestInfo = document.getElementById("register-guest-info");
+
 let lastScan = { value: null, time: 0 };
 let pendingCardId = null;
+let pendingRegistration = null;
 let scanner = null;
 let idleTimer = null;
 
@@ -185,7 +197,241 @@ async function linkAndCheckin() {
   resetIdleTimer();
 }
 
+// === Personnummer Luhn validation (mirrors src/validation.py) ===
+
+function sanitizePersonnummer(value) {
+  return value.replace(/[-\s]/g, "").replace(/\D/g, "");
+}
+
+function validatePersonnummer(value) {
+  const digits = sanitizePersonnummer(value);
+  if (digits.length !== 10 && digits.length !== 12) {
+    return { valid: false, error: "Måste vara 10 eller 12 siffror" };
+  }
+  const d = digits.slice(-10);
+  const month = parseInt(d.slice(2, 4), 10);
+  const day = parseInt(d.slice(4, 6), 10);
+  if (month < 1 || month > 12) return { valid: false, error: "Ogiltig månad" };
+  if (day < 1 || day > 31) return { valid: false, error: "Ogiltig dag" };
+
+  const weights = [2, 1, 2, 1, 2, 1, 2, 1, 2, 1];
+  let total = 0;
+  for (let i = 0; i < 10; i++) {
+    let val = parseInt(d[i], 10) * weights[i];
+    if (val >= 10) val -= 9;
+    total += val;
+  }
+  if (total % 10 !== 0) return { valid: false, error: "Ogiltig checksumma" };
+  return { valid: true, error: "" };
+}
+
+// === Guest registration modal ===
+
+function validateRegisterForm() {
+  const tag = regTag ? regTag.value.trim() : "";
+  const pnr = regPnr ? regPnr.value.trim() : "";
+  const pnrResult = pnr ? validatePersonnummer(pnr) : { valid: false, error: "" };
+
+  if (regPnrError) {
+    regPnrError.textContent = pnr && !pnrResult.valid ? pnrResult.error : "";
+  }
+  if (regSubmit) {
+    regSubmit.disabled = !(tag.length > 0 && pnrResult.valid);
+  }
+}
+
+function showRegisterForm(checkinId, guestName) {
+  pendingRegistration = { checkinId, guestName };
+  if (regGuestInfo) regGuestInfo.textContent = `Registrera ${guestName} som medlem i FGC Trollhättan`;
+  if (regTag) regTag.value = "";
+  if (regPnr) regPnr.value = "";
+  if (regPhone) regPhone.value = "";
+  if (regEmail) regEmail.value = "";
+  if (regResult) { regResult.textContent = ""; regResult.className = "register-result"; }
+  if (regPnrError) regPnrError.textContent = "";
+  if (regSubmit) regSubmit.disabled = true;
+  if (registerModal) registerModal.style.display = "flex";
+  if (regTag) regTag.focus();
+  resetIdleTimer();
+}
+
+function hideRegisterForm() {
+  pendingRegistration = null;
+  if (registerModal) registerModal.style.display = "none";
+}
+
+async function submitRegistration() {
+  if (!pendingRegistration) return;
+  const tag = regTag ? regTag.value.trim() : "";
+  const personnummer = regPnr ? sanitizePersonnummer(regPnr.value) : "";
+  const telephone = regPhone ? regPhone.value.trim() : "";
+  const email = regEmail ? regEmail.value.trim() : "";
+
+  if (!tag || !personnummer) return;
+
+  if (regSubmit) regSubmit.disabled = true;
+  if (regResult) { regResult.textContent = "Registrerar..."; regResult.className = "register-result"; }
+
+  try {
+    const res = await fetch("/api/guest/register", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        checkin_id: pendingRegistration.checkinId,
+        tag,
+        personnummer,
+        telephone,
+        email,
+      }),
+    });
+    const data = await res.json();
+    if (data.success) {
+      if (regResult) {
+        regResult.textContent = `Välkommen som medlem, ${tag}!`;
+        regResult.className = "register-result success";
+      }
+      setTimeout(() => {
+        hideRegisterForm();
+        fetchAttendance();
+      }, 2000);
+    } else {
+      if (regResult) {
+        regResult.textContent = data.message || "Registreringen misslyckades";
+        regResult.className = "register-result error";
+      }
+      if (regSubmit) regSubmit.disabled = false;
+    }
+  } catch (err) {
+    if (regResult) {
+      regResult.textContent = "Nätverksfel — försök igen";
+      regResult.className = "register-result error";
+    }
+    if (regSubmit) regSubmit.disabled = false;
+  }
+  resetIdleTimer();
+}
+
+// === Guest checkin (no QR needed) ===
+
+const guestCheckinToggle = document.getElementById("guest-checkin-toggle");
+const guestCheckinForm = document.getElementById("guest-checkin-form");
+const guestNameInput = document.getElementById("guest-name-input");
+const guestCheckinBtn = document.getElementById("guest-checkin-btn");
+const guestCheckinResult = document.getElementById("guest-checkin-result");
+
+function toggleGuestCheckin() {
+  if (!guestCheckinForm) return;
+  const visible = guestCheckinForm.style.display !== "none";
+  guestCheckinForm.style.display = visible ? "none" : "block";
+  if (!visible && guestNameInput) { guestNameInput.value = ""; guestNameInput.focus(); }
+  if (guestCheckinResult) { guestCheckinResult.textContent = ""; guestCheckinResult.className = "guest-checkin-result"; }
+  resetIdleTimer();
+}
+
+async function submitGuestCheckin() {
+  const name = guestNameInput ? guestNameInput.value.trim() : "";
+  if (!name) return;
+
+  try {
+    const res = await fetch("/api/guest/checkin", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ guest_name: name }),
+    });
+    const data = await res.json();
+    if (data.status === "ok") {
+      setStatus("INCHECKAD", "ok");
+      scanResultEl.textContent = `Välkommen ${data.guest_name}! Du är #${data.checkin_number} idag`;
+      updateCounters(data.checkin_number, data.present);
+      if (guestCheckinForm) guestCheckinForm.style.display = "none";
+      if (guestCheckinResult) { guestCheckinResult.textContent = ""; guestCheckinResult.className = "guest-checkin-result"; }
+      if (guestNameInput) guestNameInput.value = "";
+    } else if (data.status === "no_session") {
+      if (guestCheckinResult) { guestCheckinResult.textContent = "Ingen aktiv session."; guestCheckinResult.className = "guest-checkin-result error"; }
+    } else {
+      if (guestCheckinResult) { guestCheckinResult.textContent = data.error || "Något gick fel"; guestCheckinResult.className = "guest-checkin-result error"; }
+    }
+  } catch (err) {
+    if (guestCheckinResult) { guestCheckinResult.textContent = "Nätverksfel — försök igen"; guestCheckinResult.className = "guest-checkin-result error"; }
+  }
+  resetIdleTimer();
+}
+
+// === Kiosk guest search → register ===
+
+const kioskRegBtn = document.getElementById("kiosk-register-btn");
+const guestSearchForm = document.getElementById("guest-search-form");
+const guestSearchInput = document.getElementById("guest-search-input");
+const guestSearchBtn = document.getElementById("guest-search-btn");
+const guestSearchResult = document.getElementById("guest-search-result");
+
+function toggleGuestSearch() {
+  if (!guestSearchForm) return;
+  const visible = guestSearchForm.style.display !== "none";
+  guestSearchForm.style.display = visible ? "none" : "block";
+  if (!visible && guestSearchInput) { guestSearchInput.value = ""; guestSearchInput.focus(); }
+  if (guestSearchResult) guestSearchResult.innerHTML = "";
+  resetIdleTimer();
+}
+
+async function searchGuestCheckins() {
+  const query = guestSearchInput ? guestSearchInput.value.trim().toLowerCase() : "";
+  if (!query || !guestSearchResult) return;
+
+  try {
+    const res = await fetch("/api/sessions/attendance");
+    const data = await res.json();
+    if (!data.open) {
+      guestSearchResult.textContent = "Ingen aktiv session.";
+      return;
+    }
+    const guests = data.checkins.filter(c => c.is_guest && !c.checked_out && c.name.toLowerCase().includes(query));
+    if (guests.length === 0) {
+      guestSearchResult.textContent = "Ingen gäst med det namnet hittades.";
+      return;
+    }
+    const ul = document.createElement("ul");
+    ul.className = "guest-match-list";
+    for (const g of guests) {
+      const li = document.createElement("li");
+      li.textContent = g.name;
+      const btn = document.createElement("button");
+      btn.className = "btn-register";
+      btn.textContent = "Välj";
+      btn.addEventListener("click", () => {
+        guestSearchForm.style.display = "none";
+        guestSearchResult.innerHTML = "";
+        showRegisterForm(g.checkin_id, g.name);
+      });
+      li.appendChild(btn);
+      ul.appendChild(li);
+    }
+    guestSearchResult.innerHTML = "";
+    guestSearchResult.appendChild(ul);
+  } catch (err) {
+    guestSearchResult.textContent = "Kunde inte söka — försök igen.";
+  }
+  resetIdleTimer();
+}
+
+// === Event listeners ===
+
 if (linkBtn) linkBtn.addEventListener("click", linkAndCheckin);
 if (linkInput) linkInput.addEventListener("keydown", (e) => { if (e.key === "Enter") linkAndCheckin(); });
 if (startButton) startButton.addEventListener("click", startSession);
 if (scanPanel && scanPanel.style.display !== "none") initScanner();
+if (regSubmit) regSubmit.addEventListener("click", submitRegistration);
+if (regCancel) regCancel.addEventListener("click", hideRegisterForm);
+if (regTag) regTag.addEventListener("input", validateRegisterForm);
+if (regPnr) regPnr.addEventListener("input", validateRegisterForm);
+if (idleOverlay) {
+  idleOverlay.addEventListener("click", resetIdleTimer);
+  idleOverlay.addEventListener("mousemove", resetIdleTimer);
+  idleOverlay.addEventListener("touchstart", resetIdleTimer);
+}
+if (guestCheckinToggle) guestCheckinToggle.addEventListener("click", toggleGuestCheckin);
+if (guestCheckinBtn) guestCheckinBtn.addEventListener("click", submitGuestCheckin);
+if (guestNameInput) guestNameInput.addEventListener("keydown", (e) => { if (e.key === "Enter") submitGuestCheckin(); });
+if (kioskRegBtn) kioskRegBtn.addEventListener("click", toggleGuestSearch);
+if (guestSearchBtn) guestSearchBtn.addEventListener("click", searchGuestCheckins);
+if (guestSearchInput) guestSearchInput.addEventListener("keydown", (e) => { if (e.key === "Enter") searchGuestCheckins(); });

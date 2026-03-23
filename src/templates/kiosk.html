@@ -33,6 +33,18 @@
       Skanna ditt medlemskort for att checka in.
     </div>
     <div class="scan-result" id="scan-result"></div>
+
+    <div class="guest-checkin-section" id="guest-checkin-section">
+      <div class="section-divider">eller</div>
+      <button class="btn" id="guest-checkin-toggle">Checka in som gäst</button>
+      <div id="guest-checkin-form" style="display:none">
+        <div class="link-form-row" style="margin-top:8px">
+          <input id="guest-name-input" type="text" placeholder="Ditt namn" />
+          <button id="guest-checkin-btn" class="btn primary">Checka in</button>
+        </div>
+        <div class="guest-checkin-result" id="guest-checkin-result"></div>
+      </div>
+    </div>
     <div class="link-form" id="link-form" style="display:none">
       <p>QR okand — skriv namn eller tag for att koppla:</p>
       <div class="link-form-row">
@@ -42,11 +54,51 @@
       <div class="link-result" id="link-result"></div>
     </div>
 
+    <div class="guest-register-section" id="guest-register-section">
+      <button class="btn-register" id="kiosk-register-btn">Bli medlem i FGC?</button>
+      <div id="guest-search-form" style="display:none">
+        <div class="link-form-row" style="margin-top:8px">
+          <input id="guest-search-input" type="text" placeholder="Skriv ditt namn" />
+          <button id="guest-search-btn" class="btn primary">Sök</button>
+        </div>
+        <div id="guest-search-result"></div>
+      </div>
+    </div>
+
     <div class="idle-overlay" id="idle-overlay" style="display:none">
       <div class="idle-content">
         <div class="idle-count" id="idle-count">0</div>
         <div class="idle-label">incheckade idag</div>
         <div class="idle-hint">Skanna ditt medlemskort for att checka in</div>
+      </div>
+    </div>
+
+    <div class="register-modal" id="register-modal" style="display:none">
+      <div class="register-modal-content">
+        <h2>Bli medlem</h2>
+        <p id="register-guest-info"></p>
+        <div class="form-row">
+          <label for="reg-tag">Tag / gamertag *</label>
+          <input id="reg-tag" type="text" placeholder="t.ex. joelboy" maxlength="30" />
+        </div>
+        <div class="form-row">
+          <label for="reg-pnr">Personnummer *</label>
+          <input id="reg-pnr" type="text" placeholder="YYYYMMDDXXXX" maxlength="13" />
+          <span class="field-error" id="reg-pnr-error"></span>
+        </div>
+        <div class="form-row">
+          <label for="reg-phone">Telefon</label>
+          <input id="reg-phone" type="tel" placeholder="070-123 45 67" />
+        </div>
+        <div class="form-row">
+          <label for="reg-email">Email</label>
+          <input id="reg-email" type="email" placeholder="namn@exempel.se" />
+        </div>
+        <div class="register-actions">
+          <button id="reg-submit" class="btn primary" disabled>Registrera</button>
+          <button id="reg-cancel" class="btn">Avbryt</button>
+        </div>
+        <div class="register-result" id="register-result"></div>
       </div>
     </div>
   </div>

@@ -1,6 +1,6 @@
 # FGC THN — Unified System Roadmap
 
-Senast uppdaterad: 2026-03-21
+Senast uppdaterad: 2026-03-23
 
 ## Vision
 Tre system, en Postgres, en spelaridentitet. Checka in en gang → syns overallt.
@@ -13,27 +13,11 @@ Tre system, en Postgres, en spelaridentitet. Checka in en gang → syns overallt
 |--------|------|--------|
 | Turneringar | `fgt-checkin-system` | Produktion |
 | Medlemskort | `fgt-member-card` | DEV kor, behover polish |
-| Meetups | `fgc-thn-meetups` | Migrering klar, behover Docker + E2E-test |
+| Meetups | `fgc-thn-meetups` | Feature-complete, behover E2E-test + prod-deploy |
 
 ---
 
 ## TODO
-
-### Medlemskort (fgt-member-card)
-
-- [x] Arkitektur och design bestamd
-- [x] Frontend: kort med QR, sociala lankar, FGC THN-branding
-- [x] Backend: FastAPI + psycopg3, laser players + card_ids
-- [x] Personnummer + tag verifiering mot eBas via n8n
-- [x] Cookie-baserad session (behover inte logga in igen)
-- [x] GDPR-text pa landing page
-- [x] Docker-setup (dev), ansluter till turneringssystemets natverk
-- [ ] Byt logotyp till transparent bakgrund (vantar pa fil fran Viktor)
-- [ ] Visa spelarstatistik pa kortet (antal events, favorite game, streak)
-- [ ] DNS: satt upp `medlemskort.fgctrollhattan.se` A-record pa One.com
-- [ ] SSL: certbot for medlemskort-domanen
-- [ ] Prod-deploy pa Raspberry Pi
-- [ ] Testa med riktiga medlemmar
 
 ### Meetup-system (fgc-thn-meetups)
 
@@ -50,11 +34,29 @@ Tre system, en Postgres, en spelaridentitet. Checka in en gang → syns overallt
 - [x] routers — alla tre uppdaterade (kiosk, admin, reports)
 - [x] templates — Member → Player namnbyte
 - [x] models.py borttagen
-- [x] Testsvit omskriven (21 tester, mock-baserade)
+- [x] Testsvit omskriven (31 tester, mock-baserade)
 - [x] Repo publikt pa GitHub
-- [ ] **Dockerfile + docker-compose.dev.yml** (pagaende)
-- [ ] Testa hela flodet mot riktig Postgres: session → QR-checkin → gast → headcount → statistik → export
-- [ ] Registreringsformular for gast → medlem (ateranvand fran turneringssystemet)
+- [x] Dockerfile + docker-compose.dev.yml
+- [x] Gast → medlem-registrering (kiosk + admin, Luhn-validering, n8n/eBas-integration)
+- [ ] E2E-test mot riktig Postgres: session → QR-checkin → gast → bli medlem → headcount → statistik → export
+- [ ] docker-compose.prod.yml + nginx.conf
+- [ ] Prod-deploy pa Raspberry Pi
+
+### Medlemskort (fgt-member-card)
+
+- [x] Arkitektur och design bestamd
+- [x] Frontend: kort med QR, sociala lankar, FGC THN-branding
+- [x] Backend: FastAPI + psycopg3, laser players + card_ids
+- [x] Personnummer + tag verifiering mot eBas via n8n
+- [x] Cookie-baserad session (behover inte logga in igen)
+- [x] GDPR-text pa landing page
+- [x] Docker-setup (dev), ansluter till turneringssystemets natverk
+- [ ] Byt logotyp till transparent bakgrund (vantar pa fil fran Viktor)
+- [ ] Visa spelarstatistik pa kortet (antal events, favorite game, streak)
+- [ ] DNS: satt upp `medlemskort.fgctrollhattan.se` A-record pa One.com
+- [ ] SSL: certbot for medlemskort-domanen
+- [ ] Prod-deploy pa Raspberry Pi
+- [ ] Testa med riktiga medlemmar
 
 ### Turneringssystemet (fgt-checkin-system)
 
@@ -75,13 +77,14 @@ Tre system, en Postgres, en spelaridentitet. Checka in en gang → syns overallt
 
 ---
 
-## Ordning att jobba i
+## Nasta steg (prioritetsordning)
 
-1. **Nasta:** Docker-setup for meetup-systemet + E2E-test mot Postgres
-2. **Sen:** DNS + SSL + prod-deploy av medlemskort
-3. **Sen:** Registreringsformular for nya medlemmar pa meetups
+1. **Nu:** E2E-test av meetup-systemet mot riktig Postgres + n8n
+2. **Nasta:** Prod-config for meetup (docker-compose.prod.yml + nginx)
+3. **Sen:** DNS + SSL + prod-deploy av medlemskort
 4. **Sen:** Testa hela kedjan end-to-end (turnering → kort → meetup)
-5. **Framtid:** Insights-integration, statistik over alla system
+5. **Framtid:** Spelarstatistik pa medlemskortet
+6. **Framtid:** Insights-integration, statistik over alla system
 
 ---
 

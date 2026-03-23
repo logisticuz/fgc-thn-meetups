@@ -505,6 +505,160 @@ input[type="file"] {
   opacity: 0.6;
 }
 
+/* Register modal */
+.register-modal {
+  position: absolute;
+  inset: 0;
+  background: rgba(10, 10, 15, 0.95);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 16px;
+  z-index: 20;
+}
+
+.register-modal-content {
+  width: 100%;
+  max-width: 400px;
+  padding: 24px;
+}
+
+.register-modal-content h2 {
+  margin: 0 0 4px 0;
+  color: var(--accent);
+}
+
+.register-modal-content p {
+  margin: 0 0 16px 0;
+  color: var(--muted);
+}
+
+.register-modal-content .form-row {
+  margin-bottom: 12px;
+}
+
+.register-modal-content label {
+  font-size: 13px;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  color: var(--muted);
+}
+
+.register-modal-content input[type="text"],
+.register-modal-content input[type="tel"],
+.register-modal-content input[type="email"] {
+  width: 100%;
+  padding: 10px 12px;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: #0a0a0f;
+  color: var(--text);
+}
+
+.field-error {
+  font-size: 13px;
+  color: var(--danger);
+}
+
+.register-actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 16px;
+}
+
+.register-result {
+  margin-top: 12px;
+  font-size: 15px;
+}
+
+.register-result.success {
+  color: var(--success);
+}
+
+.register-result.error {
+  color: var(--danger);
+}
+
+.btn-register {
+  padding: 2px 10px;
+  border-radius: 999px;
+  border: 1px solid var(--accent);
+  background: transparent;
+  color: var(--accent);
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.5px;
+}
+
+.btn-register:hover {
+  background: rgba(0, 212, 255, 0.15);
+}
+
+.guest-tag {
+  font-size: 12px;
+  color: var(--muted);
+  font-style: italic;
+  margin-left: 4px;
+}
+
+.guest-checkin-section {
+  margin-top: 16px;
+  text-align: center;
+}
+
+.section-divider {
+  color: var(--muted);
+  font-size: 13px;
+  text-transform: uppercase;
+  letter-spacing: 2px;
+  margin-bottom: 8px;
+}
+
+.guest-checkin-result {
+  margin-top: 8px;
+  font-size: 15px;
+}
+
+.guest-checkin-result.success {
+  color: var(--success);
+}
+
+.guest-checkin-result.error {
+  color: var(--danger);
+}
+
+.guest-register-section {
+  margin-top: 16px;
+  padding: 16px;
+  background: var(--surface-2);
+  border-radius: 12px;
+  border: 1px solid var(--border);
+  text-align: center;
+}
+
+.guest-match-list {
+  list-style: none;
+  padding: 0;
+  margin: 8px 0 0 0;
+}
+
+.guest-match-list li {
+  padding: 8px 12px;
+  margin: 4px 0;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  cursor: pointer;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.guest-match-list li:hover {
+  border-color: var(--accent);
+}
+
 @media (max-width: 720px) {
   .app-header {
     flex-direction: column;

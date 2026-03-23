@@ -2,7 +2,7 @@ from fastapi import APIRouter, Request
 from fastapi.responses import HTMLResponse, RedirectResponse, JSONResponse
 from pydantic import BaseModel
 from ..deps import templates, extract_token
-from .. import crud
+from .. import crud, validation, ebas
 
 router = APIRouter()
 
@@ -14,6 +14,18 @@ class CheckinRequest(BaseModel):
 class LinkAndCheckinRequest(BaseModel):
     card_id: str
     player_name: str | None = None
+
+
+class GuestCheckinRequest(BaseModel):
+    guest_name: str
+
+
+class GuestRegisterRequest(BaseModel):
+    checkin_id: str
+    tag: str
+    personnummer: str
+    telephone: str = ""
+    email: str = ""
 
 
 @router.get("/")
@@ -97,6 +109,33 @@ async def api_session_attendance():
     return {"open": True, "total": len(checkins), "present": present, "checkins": checkins}
 
 
+@router.post("/api/guest/checkin")
+async def api_guest_checkin(payload: GuestCheckinRequest):
+    name = payload.guest_name.strip()
+    if not name:
+        return JSONResponse({"success": False, "error": "Namn krävs"}, status_code=400)
+
+    session = crud.get_open_session()
+    if not session:
+        return JSONResponse({"status": "no_session"})
+
+    checkin = crud.create_checkin(
+        session_id=session["id"],
+        player_uuid=None,
+        guest_name=name,
+        method="kiosk_guest",
+    )
+    total = crud.count_checkins(session["id"])
+    present = crud.count_present(session["id"])
+    return JSONResponse({
+        "status": "ok",
+        "guest_name": name,
+        "checkin_number": total,
+        "present": present,
+        "checkin_id": checkin["id"],
+    })
+
+
 @router.post("/api/link-and-checkin")
 async def api_link_and_checkin(payload: LinkAndCheckinRequest):
     session = crud.get_open_session()
@@ -134,3 +173,63 @@ async def api_link_and_checkin(payload: LinkAndCheckinRequest):
         "present": present,
         "streak": streak,
     })
+
+
+@router.post("/api/guest/register")
+async def api_guest_register(payload: GuestRegisterRequest):
+    try:
+        checkin_id = int(payload.checkin_id)
+    except (TypeError, ValueError):
+        return JSONResponse({"success": False, "error": "Ogiltigt checkin_id"}, status_code=400)
+
+    tag = validation.sanitize_string(payload.tag, "tag")
+    personnummer = validation.sanitize_personnummer(payload.personnummer)
+    telephone = validation.sanitize_phone(payload.telephone)
+    email = validation.sanitize_string(payload.email, "email")
+
+    if not tag:
+        return JSONResponse({"success": False, "error": "Tag krävs"}, status_code=400)
+
+    is_valid, error_message = validation.validate_personnummer(personnummer)
+    if not is_valid:
+        return JSONResponse({"success": False, "error": error_message}, status_code=400)
+
+    checkin = crud.get_checkin_by_id(checkin_id)
+    if not checkin:
+        return JSONResponse({"success": False, "error": "Checkin hittades inte"}, status_code=404)
+
+    if not checkin.get("guest_name") or checkin.get("player_uuid"):
+        return JSONResponse(
+            {"success": False, "error": "Checkin är inte en gästincheckning"},
+            status_code=400,
+        )
+
+    player = crud.get_player_by_tag(tag)
+    if player:
+        player_uuid = player["uuid"]
+    else:
+        created_player = crud.create_player(
+            name=checkin["guest_name"],
+            tag=tag,
+            telephone=telephone,
+            email=email,
+        )
+        player_uuid = created_player["uuid"]
+
+    converted = crud.convert_guest_to_player(checkin_id, player_uuid)
+    if not converted:
+        return JSONResponse({"success": False, "error": "Kunde inte uppdatera checkin"}, status_code=500)
+
+    ebas_result = await ebas.register_member(
+        personnummer=personnummer,
+        tag=tag,
+        email=email,
+        telephone=telephone,
+    )
+    crud.log_action("guest_registered", f"{tag} registered as member", "system")
+
+    return {
+        "success": True,
+        "player_uuid": player_uuid,
+        "ebas_result": ebas_result,
+    }

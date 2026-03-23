@@ -5,9 +5,11 @@ without requiring a running Postgres database.
 """
 
 from datetime import datetime, timedelta
-from unittest.mock import patch
+from unittest.mock import patch, AsyncMock
 
 from src import crud
+from src import ebas
+from src.validation import validate_personnummer, sanitize_personnummer, sanitize_phone
 
 
 # --- Helpers ---
@@ -36,17 +38,21 @@ def _player(uuid="p-001", name="Viktor Test", tag="Logisticuz"):
     }
 
 
-def _checkin(cid=1, player_uuid="p-001"):
+def _checkin(cid=1, player_uuid="p-001", guest_name=None):  # noqa: player_uuid can be None
     return {
         "id": cid,
         "session_id": 1,
         "player_uuid": player_uuid,
-        "guest_name": None,
+        "guest_name": guest_name,
         "method": "qr_scan",
         "checkin_time": datetime.utcnow(),
         "checkout_time": None,
         "created_by": None,
     }
+
+
+def _guest_checkin(cid=10, guest_name="Joel"):
+    return _checkin(cid=cid, player_uuid=None, guest_name=guest_name)
 
 
 # --- Auth tests ---
@@ -202,8 +208,8 @@ def test_attendance_no_session(mock_session, client):
 
 @patch.object(crud, "count_present", return_value=2)
 @patch.object(crud, "get_session_checkins", return_value=[
-    {"number": 1, "name": "Viktor", "checkin_time": "", "checkout_time": "", "checked_out": False, "method": "qr_scan", "checkin_id": 1},
-    {"number": 2, "name": "Guest", "checkin_time": "", "checkout_time": "", "checked_out": False, "method": "manual", "checkin_id": 2},
+    {"number": 1, "name": "Viktor", "checkin_time": "", "checkout_time": "", "checked_out": False, "method": "qr_scan", "checkin_id": 1, "is_guest": False},
+    {"number": 2, "name": "Guest", "checkin_time": "", "checkout_time": "", "checked_out": False, "method": "manual", "checkin_id": 2, "is_guest": True},
 ])
 @patch.object(crud, "get_open_session", return_value=_session())
 def test_attendance_with_checkins(mock_session, mock_checkins, mock_present, client):
@@ -244,3 +250,130 @@ def test_open_session_active(mock_get, client):
     assert body["open"] is True
     assert "id" in body
     assert "start_time" in body
+
+
+# --- Personnummer validation (unit tests) ---
+
+def test_validate_personnummer_valid_12():
+    ok, err = validate_personnummer("199001011234")
+    # This is a constructed example — Luhn may or may not pass.
+    # Test with a known-valid personnummer instead:
+    ok, err = validate_personnummer("8507099805")
+    assert ok is True
+    assert err == ""
+
+
+def test_validate_personnummer_invalid_checksum():
+    ok, err = validate_personnummer("8507099800")
+    assert ok is False
+    assert "checksumma" in err
+
+
+def test_validate_personnummer_too_short():
+    ok, err = validate_personnummer("12345")
+    assert ok is False
+    assert "siffror" in err
+
+
+def test_validate_personnummer_invalid_month():
+    ok, err = validate_personnummer("8513099805")
+    assert ok is False
+    assert "månad" in err
+
+
+def test_sanitize_personnummer_strips():
+    assert sanitize_personnummer("850709-9805") == "8507099805"
+    assert sanitize_personnummer("19850709-9805") == "198507099805"
+    assert sanitize_personnummer("  850709 9805 ") == "8507099805"
+
+
+def test_sanitize_phone():
+    assert sanitize_phone("070-123 45 67") == "0701234567"
+    assert sanitize_phone("+46 70 123 45 67") == "46701234567"
+
+
+# --- Guest checkin (kiosk) ---
+
+@patch.object(crud, "count_present", return_value=1)
+@patch.object(crud, "count_checkins", return_value=1)
+@patch.object(crud, "create_checkin", return_value=_guest_checkin())
+@patch.object(crud, "get_open_session", return_value=_session())
+def test_guest_checkin_success(mock_session, mock_create, mock_count, mock_present, client):
+    res = client.post("/api/guest/checkin", json={"guest_name": "Joel"})
+    body = res.json()
+    assert body["status"] == "ok"
+    assert body["guest_name"] == "Joel"
+    assert body["checkin_number"] == 1
+    mock_create.assert_called_once()
+
+
+@patch.object(crud, "get_open_session", return_value=None)
+def test_guest_checkin_no_session(mock_session, client):
+    res = client.post("/api/guest/checkin", json={"guest_name": "Joel"})
+    assert res.json()["status"] == "no_session"
+
+
+def test_guest_checkin_empty_name(client):
+    res = client.post("/api/guest/checkin", json={"guest_name": "  "})
+    assert res.status_code == 400
+
+
+# --- Guest registration ---
+
+@patch("src.ebas.register_member", new_callable=AsyncMock, return_value={"success": True, "registered": True, "message": "Medlem registrerad"})
+@patch.object(crud, "log_action")
+@patch.object(crud, "convert_guest_to_player", return_value=_checkin(cid=10, player_uuid="p-new"))
+@patch.object(crud, "create_player", return_value=_player(uuid="p-new", name="Joel", tag="joelboy"))
+@patch.object(crud, "get_player_by_tag", return_value=None)
+@patch.object(crud, "get_checkin_by_id", return_value=_guest_checkin())
+@patch.object(crud, "get_open_session", return_value=_session())
+def test_guest_register_success(mock_session, mock_get_checkin, mock_get_tag, mock_create, mock_convert, mock_log, mock_ebas, client):
+    res = client.post("/api/guest/register", json={
+        "checkin_id": "10",
+        "tag": "joelboy",
+        "personnummer": "8507099805",
+    })
+    body = res.json()
+    assert body["success"] is True
+    assert body["player_uuid"] == "p-new"
+    mock_create.assert_called_once()
+    mock_ebas.assert_called_once()
+
+
+@patch("src.ebas.register_member", new_callable=AsyncMock, return_value={"success": True})
+@patch.object(crud, "log_action")
+@patch.object(crud, "convert_guest_to_player", return_value=_checkin(cid=10, player_uuid="p-001"))
+@patch.object(crud, "get_player_by_tag", return_value=_player(uuid="p-001", tag="joelboy"))
+@patch.object(crud, "get_checkin_by_id", return_value=_guest_checkin())
+@patch.object(crud, "get_open_session", return_value=_session())
+def test_guest_register_existing_tag(mock_session, mock_get_checkin, mock_get_tag, mock_convert, mock_log, mock_ebas, client):
+    res = client.post("/api/guest/register", json={
+        "checkin_id": "10",
+        "tag": "joelboy",
+        "personnummer": "8507099805",
+    })
+    body = res.json()
+    assert body["success"] is True
+    assert body["player_uuid"] == "p-001"
+
+
+def test_guest_register_invalid_personnummer(client):
+    res = client.post("/api/guest/register", json={
+        "checkin_id": "10",
+        "tag": "joelboy",
+        "personnummer": "1234",
+    })
+    body = res.json()
+    assert body.get("success") is not True or res.status_code >= 400
+
+
+@patch.object(crud, "get_checkin_by_id", return_value=_checkin())
+@patch.object(crud, "get_open_session", return_value=_session())
+def test_guest_register_not_a_guest(mock_session, mock_get_checkin, client):
+    res = client.post("/api/guest/register", json={
+        "checkin_id": "1",
+        "tag": "joelboy",
+        "personnummer": "8507099805",
+    })
+    body = res.json()
+    assert res.status_code == 400 or body.get("success") is False

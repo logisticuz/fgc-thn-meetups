@@ -13,6 +13,7 @@ class Settings:
         "DATABASE_URL",
         "postgresql://fgc:devpassword@postgres:5432/fgc_checkin",
     )
+    n8n_url: str = os.getenv("N8N_URL", "http://n8n:5678")
 
     def __post_init__(self):
         if self.admin_pin in _WEAK_DEFAULTS:

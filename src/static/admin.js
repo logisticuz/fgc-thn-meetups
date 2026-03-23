@@ -77,15 +77,29 @@ async function loadAttendance() {
       const statusClass = c.checked_out ? "checkout-out" : "checkout-in";
       const statusText = c.checked_out ? `ut ${outTime}` : "här";
 
+      const nameChildren = [
+        el("span", { className: "attendance-number", textContent: `#${c.number}` }),
+        c.name,
+      ];
+      if (c.is_guest) {
+        nameChildren.push(el("span", { className: "guest-tag", textContent: "(gäst)" }));
+      }
+
+      const actionChildren = [
+        el("span", { className: "attendance-time", textContent: `${time} · ${statusText}` }),
+      ];
+      if (c.is_guest && !c.checked_out) {
+        actionChildren.push(el("button", {
+          className: "btn-register",
+          textContent: "Bli medlem",
+          onclick: () => showAdminRegisterForm(c.checkin_id, c.name),
+        }));
+      }
+      actionChildren.push(el("button", { className: "btn-delete", title: "Ta bort", textContent: "\u00d7", onclick: () => deleteCheckin(c.checkin_id) }));
+
       const li = el("li", { className: statusClass }, [
-        el("span", {}, [
-          el("span", { className: "attendance-number", textContent: `#${c.number}` }),
-          c.name,
-        ]),
-        el("span", { className: "attendance-actions" }, [
-          el("span", { className: "attendance-time", textContent: `${time} · ${statusText}` }),
-          el("button", { className: "btn-delete", title: "Ta bort", textContent: "\u00d7", onclick: () => deleteCheckin(c.checkin_id) }),
-        ]),
+        el("span", {}, nameChildren),
+        el("span", { className: "attendance-actions" }, actionChildren),
       ]);
       ul.appendChild(li);
     }
@@ -135,6 +149,112 @@ if (headcountBtn) {
     loadHeadcounts();
   });
 }
+
+// === Guest registration (admin) ===
+
+const adminRegModal = document.getElementById("admin-register-modal");
+const adminRegTag = document.getElementById("admin-reg-tag");
+const adminRegPnr = document.getElementById("admin-reg-pnr");
+const adminRegPhone = document.getElementById("admin-reg-phone");
+const adminRegEmail = document.getElementById("admin-reg-email");
+const adminRegSubmit = document.getElementById("admin-reg-submit");
+const adminRegCancel = document.getElementById("admin-reg-cancel");
+const adminRegResult = document.getElementById("admin-reg-result");
+const adminRegPnrError = document.getElementById("admin-reg-pnr-error");
+const adminRegGuestInfo = document.getElementById("admin-reg-guest-info");
+
+let adminPendingReg = null;
+
+function sanitizePersonnummer(value) {
+  return value.replace(/[-\s]/g, "").replace(/\D/g, "");
+}
+
+function validatePersonnummer(value) {
+  const digits = sanitizePersonnummer(value);
+  if (digits.length !== 10 && digits.length !== 12) {
+    return { valid: false, error: "Måste vara 10 eller 12 siffror" };
+  }
+  const d = digits.slice(-10);
+  const month = parseInt(d.slice(2, 4), 10);
+  const day = parseInt(d.slice(4, 6), 10);
+  if (month < 1 || month > 12) return { valid: false, error: "Ogiltig månad" };
+  if (day < 1 || day > 31) return { valid: false, error: "Ogiltig dag" };
+  const weights = [2, 1, 2, 1, 2, 1, 2, 1, 2, 1];
+  let total = 0;
+  for (let i = 0; i < 10; i++) {
+    let val = parseInt(d[i], 10) * weights[i];
+    if (val >= 10) val -= 9;
+    total += val;
+  }
+  if (total % 10 !== 0) return { valid: false, error: "Ogiltig checksumma" };
+  return { valid: true, error: "" };
+}
+
+function validateAdminRegForm() {
+  const tag = adminRegTag ? adminRegTag.value.trim() : "";
+  const pnr = adminRegPnr ? adminRegPnr.value.trim() : "";
+  const pnrResult = pnr ? validatePersonnummer(pnr) : { valid: false, error: "" };
+  if (adminRegPnrError) adminRegPnrError.textContent = pnr && !pnrResult.valid ? pnrResult.error : "";
+  if (adminRegSubmit) adminRegSubmit.disabled = !(tag.length > 0 && pnrResult.valid);
+}
+
+function showAdminRegisterForm(checkinId, guestName) {
+  adminPendingReg = { checkinId, guestName };
+  if (adminRegGuestInfo) adminRegGuestInfo.textContent = `Registrera ${guestName} som medlem i FGC Trollhättan`;
+  if (adminRegTag) adminRegTag.value = "";
+  if (adminRegPnr) adminRegPnr.value = "";
+  if (adminRegPhone) adminRegPhone.value = "";
+  if (adminRegEmail) adminRegEmail.value = "";
+  if (adminRegResult) { adminRegResult.textContent = ""; adminRegResult.className = "register-result"; }
+  if (adminRegPnrError) adminRegPnrError.textContent = "";
+  if (adminRegSubmit) adminRegSubmit.disabled = true;
+  if (adminRegModal) adminRegModal.style.display = "flex";
+  if (adminRegTag) adminRegTag.focus();
+}
+
+function hideAdminRegisterForm() {
+  adminPendingReg = null;
+  if (adminRegModal) adminRegModal.style.display = "none";
+}
+
+async function submitAdminRegistration() {
+  if (!adminPendingReg) return;
+  const tag = adminRegTag ? adminRegTag.value.trim() : "";
+  const personnummer = adminRegPnr ? sanitizePersonnummer(adminRegPnr.value) : "";
+  const telephone = adminRegPhone ? adminRegPhone.value.trim() : "";
+  const email = adminRegEmail ? adminRegEmail.value.trim() : "";
+  if (!tag || !personnummer) return;
+
+  if (adminRegSubmit) adminRegSubmit.disabled = true;
+  if (adminRegResult) { adminRegResult.textContent = "Registrerar..."; adminRegResult.className = "register-result"; }
+
+  try {
+    const res = await fetch("/api/guest/register", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        checkin_id: String(adminPendingReg.checkinId),
+        tag, personnummer, telephone, email,
+      }),
+    });
+    const data = await res.json();
+    if (data.success) {
+      if (adminRegResult) { adminRegResult.textContent = `Välkommen som medlem, ${tag}!`; adminRegResult.className = "register-result success"; }
+      setTimeout(() => { hideAdminRegisterForm(); loadAttendance(); }, 2000);
+    } else {
+      if (adminRegResult) { adminRegResult.textContent = data.error || data.message || "Registreringen misslyckades"; adminRegResult.className = "register-result error"; }
+      if (adminRegSubmit) adminRegSubmit.disabled = false;
+    }
+  } catch (err) {
+    if (adminRegResult) { adminRegResult.textContent = "Nätverksfel — försök igen"; adminRegResult.className = "register-result error"; }
+    if (adminRegSubmit) adminRegSubmit.disabled = false;
+  }
+}
+
+if (adminRegSubmit) adminRegSubmit.addEventListener("click", submitAdminRegistration);
+if (adminRegCancel) adminRegCancel.addEventListener("click", hideAdminRegisterForm);
+if (adminRegTag) adminRegTag.addEventListener("input", validateAdminRegForm);
+if (adminRegPnr) adminRegPnr.addEventListener("input", validateAdminRegForm);
 
 loadAttendance();
 loadHeadcounts();

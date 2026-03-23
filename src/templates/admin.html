@@ -87,5 +87,34 @@
   </div>
 </section>
 
+<div class="register-modal" id="admin-register-modal" style="display:none">
+  <div class="register-modal-content">
+    <h2>Bli medlem</h2>
+    <p id="admin-reg-guest-info"></p>
+    <div class="form-row">
+      <label for="admin-reg-tag">Tag / gamertag *</label>
+      <input id="admin-reg-tag" type="text" placeholder="t.ex. joelboy" maxlength="30" />
+    </div>
+    <div class="form-row">
+      <label for="admin-reg-pnr">Personnummer *</label>
+      <input id="admin-reg-pnr" type="text" placeholder="YYYYMMDDXXXX" maxlength="13" />
+      <span class="field-error" id="admin-reg-pnr-error"></span>
+    </div>
+    <div class="form-row">
+      <label for="admin-reg-phone">Telefon</label>
+      <input id="admin-reg-phone" type="tel" placeholder="070-123 45 67" />
+    </div>
+    <div class="form-row">
+      <label for="admin-reg-email">Email</label>
+      <input id="admin-reg-email" type="email" placeholder="namn@exempel.se" />
+    </div>
+    <div class="register-actions">
+      <button id="admin-reg-submit" class="btn primary" disabled>Registrera</button>
+      <button id="admin-reg-cancel" class="btn">Avbryt</button>
+    </div>
+    <div class="register-result" id="admin-reg-result"></div>
+  </div>
+</div>
+
 <script src="/static/admin.js"></script>
 {% endblock %}

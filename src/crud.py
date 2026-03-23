@@ -88,6 +88,36 @@ def get_player_by_uuid(player_uuid: str) -> dict | None:
             return _row_dict(cur, row) if row else None
 
 
+def get_player_by_tag(tag: str) -> dict | None:
+    with get_connection() as conn:
+        with conn.cursor() as cur:
+            cur.execute(
+                """
+                SELECT uuid, name, tag, email, telephone
+                FROM players
+                WHERE LOWER(tag) = LOWER(%s)
+                LIMIT 1
+                """,
+                (tag,),
+            )
+            row = cur.fetchone()
+            return _row_dict(cur, row) if row else None
+
+
+def create_player(name: str, tag: str, telephone: str = "", email: str = "") -> dict:
+    with get_connection() as conn:
+        with conn.cursor() as cur:
+            cur.execute(
+                """
+                INSERT INTO players (uuid, name, tag, telephone, email)
+                VALUES (gen_random_uuid()::text, %s, %s, %s, %s)
+                RETURNING uuid, name, tag, email, telephone
+                """,
+                (name, tag, telephone, email),
+            )
+            return _row_dict(cur, cur.fetchone())
+
+
 def search_players_by_name(query: str) -> list[dict]:
     q = query.strip().lower()
     if not q:
@@ -162,6 +192,38 @@ def get_checkin_for_player(session_id: int, player_uuid: str) -> dict | None:
             return _row_dict(cur, row) if row else None
 
 
+def get_checkin_by_id(checkin_id: int) -> dict | None:
+    with get_connection() as conn:
+        with conn.cursor() as cur:
+            cur.execute(
+                """
+                SELECT id, session_id, player_uuid, guest_name, method, checkin_time, checkout_time, created_by
+                FROM meetup_checkins
+                WHERE id = %s
+                LIMIT 1
+                """,
+                (checkin_id,),
+            )
+            row = cur.fetchone()
+            return _row_dict(cur, row) if row else None
+
+
+def convert_guest_to_player(checkin_id: int, player_uuid: str) -> dict | None:
+    with get_connection() as conn:
+        with conn.cursor() as cur:
+            cur.execute(
+                """
+                UPDATE meetup_checkins
+                SET player_uuid = %s, guest_name = NULL
+                WHERE id = %s
+                RETURNING id, session_id, player_uuid, guest_name, method, checkin_time, checkout_time, created_by
+                """,
+                (player_uuid, checkin_id),
+            )
+            row = cur.fetchone()
+            return _row_dict(cur, row) if row else None
+
+
 def count_checkins(session_id: int) -> int:
     with get_connection() as conn:
         with conn.cursor() as cur:
@@ -210,6 +272,7 @@ def get_session_checkins(session_id: int) -> list[dict]:
                 "checked_out": checkout_time is not None,
                 "method": method,
                 "checkin_id": checkin_id,
+                "is_guest": player_name is None,
             }
         )
     return result
