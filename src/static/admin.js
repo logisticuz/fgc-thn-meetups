@@ -4,6 +4,9 @@ const attendanceContainer = document.getElementById("attendance-container");
 const headcountBtn = document.getElementById("headcount-btn");
 const headcountInput = document.getElementById("headcount-input");
 const headcountLog = document.getElementById("headcount-log");
+const liveStatus = document.getElementById("admin-live-status");
+const livePresent = document.getElementById("admin-live-present");
+const liveTotal = document.getElementById("admin-live-total");
 
 if (startButton) {
   startButton.addEventListener("click", async () => {
@@ -53,21 +56,31 @@ function el(tag, attrs, children) {
   return node;
 }
 
+function setLiveOverview(data) {
+  if (livePresent && data && data.present !== undefined) livePresent.textContent = String(data.present);
+  if (liveTotal && data && data.total !== undefined) liveTotal.textContent = String(data.total);
+  if (liveStatus) {
+    if (data && data.open) liveStatus.textContent = "Session aktiv";
+    else liveStatus.textContent = "Ingen aktiv session";
+  }
+}
+
 async function loadAttendance() {
   if (!attendanceContainer) return;
   try {
     const res = await fetch("/api/sessions/attendance");
     const data = await res.json();
+    setLiveOverview(data);
     if (!data.open || data.total === 0) {
       clearChildren(attendanceContainer);
       attendanceContainer.appendChild(el("p", { className: "attendance-empty", textContent: "Ingen aktiv session eller inga incheckade." }));
       return;
     }
 
-    const summaryP = el("p", { style: "margin-bottom:8px" }, [
-      el("span", { style: "color:var(--accent);font-weight:700;", textContent: `${data.present} här nu` }),
+    const summaryP = el("p", { className: "attendance-summary" }, [
+      el("span", { className: "attendance-summary-present", textContent: `${data.present} här nu` }),
       " ",
-      el("span", { style: "color:var(--muted)", textContent: `· ${data.total} totalt` }),
+      el("span", { className: "attendance-summary-total", textContent: `· ${data.total} totalt` }),
     ]);
 
     const ul = el("ul", { className: "attendance-list" });
@@ -108,6 +121,7 @@ async function loadAttendance() {
     attendanceContainer.appendChild(summaryP);
     attendanceContainer.appendChild(ul);
   } catch (err) {
+    setLiveOverview({ open: false, present: 0, total: 0 });
     clearChildren(attendanceContainer);
     attendanceContainer.appendChild(el("p", { className: "attendance-empty", textContent: "Kunde inte ladda närvarolistan." }));
   }
@@ -147,6 +161,12 @@ if (headcountBtn) {
     });
     headcountInput.value = "";
     loadHeadcounts();
+  });
+}
+
+if (headcountInput) {
+  headcountInput.addEventListener("keydown", (e) => {
+    if (e.key === "Enter") headcountBtn?.click();
   });
 }
 
@@ -255,6 +275,17 @@ if (adminRegSubmit) adminRegSubmit.addEventListener("click", submitAdminRegistra
 if (adminRegCancel) adminRegCancel.addEventListener("click", hideAdminRegisterForm);
 if (adminRegTag) adminRegTag.addEventListener("input", validateAdminRegForm);
 if (adminRegPnr) adminRegPnr.addEventListener("input", validateAdminRegForm);
+
+// === Tabs ===
+document.querySelectorAll(".admin-tab").forEach((tab) => {
+  tab.addEventListener("click", () => {
+    document.querySelectorAll(".admin-tab").forEach((t) => t.classList.remove("active"));
+    document.querySelectorAll(".admin-tab-content").forEach((c) => c.classList.remove("active"));
+    tab.classList.add("active");
+    const target = document.getElementById(tab.dataset.tab);
+    if (target) target.classList.add("active");
+  });
+});
 
 loadAttendance();
 loadHeadcounts();

@@ -1,89 +1,129 @@
 {% extends "base.html" %}
 {% block content %}
-<section class="grid">
-  <div class="card">
-    <h2>Session</h2>
-    {% if open_session %}
-      <p>Aktiv session startad {{ open_session.start_time.strftime('%H:%M') if open_session.start_time else '' }}</p>
-      <button class="btn" type="button" id="admin-end">Avsluta session</button>
-    {% else %}
-      <p>Ingen aktiv session.</p>
-      <form id="admin-start-form" class="form" onsubmit="return false;">
-        <label>Plats</label>
-        <input id="admin-location" type="text" placeholder="Lokal" />
-        <label>Anteckningar</label>
-        <input id="admin-notes" type="text" placeholder="Valfritt" />
-        <button class="btn primary" type="button" id="admin-start">Starta session</button>
-      </form>
-    {% endif %}
-  </div>
-
-  <div class="card">
-    <h2>Manuell incheckning</h2>
-    {% if error %}
-      <div class="error">{{ error }}</div>
-    {% endif %}
-    {% if message %}
-      <div class="success">{{ message }}</div>
-    {% endif %}
-    <form method="post" action="/admin/manual" class="form">
-      <label>Spelar-ID / kort-ID</label>
-      <input name="member_number" type="text" placeholder="UUID eller kort-ID" />
-      <label>Spelarnamn eller tag (valfritt)</label>
-      <input name="full_name" type="text" placeholder="Förnamn Efternamn" />
-      <label>Gästnamn (valfritt)</label>
-      <input name="guest_name" type="text" placeholder="Gästnamn" />
-      <label>QR-data (valfritt, för att koppla kort-ID)</label>
-      <input name="qr_data" type="text" placeholder="Klistra in kort-URL eller kort-ID" />
-      <button class="btn primary" type="submit">Checka in</button>
-    </form>
-  </div>
-
-  <div class="card">
-    <h2>Närvarolista</h2>
-    <div id="attendance-container">
-      <p class="attendance-empty">Laddar...</p>
+<section class="admin-shell">
+  <div class="card admin-overview">
+    <div>
+      <div class="admin-overview-label">Driftstatus</div>
+      <div class="admin-overview-value" id="admin-live-status">{% if open_session %}Session aktiv{% else %}Ingen aktiv session{% endif %}</div>
+    </div>
+    <div class="admin-overview-metrics">
+      <div class="overview-pill">
+        <span class="overview-pill-label">Här nu</span>
+        <span class="overview-pill-value" id="admin-live-present">0</span>
+      </div>
+      <div class="overview-pill overview-pill-muted">
+        <span class="overview-pill-label">Totalt idag</span>
+        <span class="overview-pill-value" id="admin-live-total">0</span>
+      </div>
     </div>
   </div>
 
-  <div class="card">
-    <h2>Headcount</h2>
-    <p>Registrera hur många som är i lokalen just nu.</p>
-    <div class="form headcount-form">
-      <input id="headcount-input" type="number" min="0" max="100" placeholder="Antal" />
-      <button class="btn primary" type="button" id="headcount-btn">Spara</button>
+  <div class="admin-tabs">
+    <button class="admin-tab active" data-tab="tab-traff">Träff</button>
+    <button class="admin-tab" data-tab="tab-oversikt">Översikt</button>
+  </div>
+
+  <!-- Tab 1: Träff -->
+  <div class="admin-tab-content active" id="tab-traff">
+    <div class="admin-grid">
+      <div class="card admin-card session-card">
+        <div class="card-heading-row">
+          <h2>Session</h2>
+          {% if open_session %}
+            <span class="status-pill open">Aktiv</span>
+          {% else %}
+            <span class="status-pill closed">Stängd</span>
+          {% endif %}
+        </div>
+        {% if open_session %}
+          <p>Startad {{ open_session.start_time.strftime('%H:%M') if open_session.start_time else '' }}</p>
+          <button class="btn" type="button" id="admin-end">Avsluta session</button>
+        {% else %}
+          <p>Ingen aktiv session.</p>
+          <form id="admin-start-form" class="form" onsubmit="return false;">
+            <label>Plats</label>
+            <input id="admin-location" type="text" value="Studiefrämjandet, Kungsgatan 42, 461 34 Trollhättan" />
+            <label>Anteckningar</label>
+            <input id="admin-notes" type="text" placeholder="Valfritt" />
+            <button class="btn primary" type="button" id="admin-start">Starta session</button>
+          </form>
+        {% endif %}
+      </div>
+
+      <div class="card admin-card headcount-card">
+        <h2>Headcount</h2>
+        <p>Hur många är i lokalen just nu?</p>
+        <div class="form headcount-form">
+          <input id="headcount-input" type="number" min="0" max="100" placeholder="Antal" />
+          <button class="btn primary" type="button" id="headcount-btn">Spara</button>
+        </div>
+        <div id="headcount-log"></div>
+      </div>
+
+      <div class="card admin-card attendance-card">
+        <h2>Närvarolista</h2>
+        <div id="attendance-container">
+          <p class="attendance-empty">Laddar...</p>
+        </div>
+      </div>
+
+      <div class="card admin-card manual-card">
+        <h2>Manuell incheckning</h2>
+        <p class="card-intro">Används när kort inte går att skanna eller vid gästincheckning.</p>
+        {% if error %}
+          <div class="error">{{ error }}</div>
+        {% endif %}
+        {% if message %}
+          <div class="success">{{ message }}</div>
+        {% endif %}
+        <form method="post" action="/admin/manual" class="form">
+          <label>Spelar-ID / kort-ID</label>
+          <input name="member_number" type="text" placeholder="UUID eller kort-ID" />
+          <label>Spelarnamn eller tag (valfritt)</label>
+          <input name="full_name" type="text" placeholder="Förnamn Efternamn" />
+          <label>Gästnamn (valfritt)</label>
+          <input name="guest_name" type="text" placeholder="Gästnamn" />
+          <label>QR-data (valfritt, för att koppla kort-ID)</label>
+          <input name="qr_data" type="text" placeholder="Klistra in kort-URL eller kort-ID" />
+          <button class="btn primary" type="submit">Checka in</button>
+        </form>
+      </div>
     </div>
-    <div id="headcount-log"></div>
   </div>
 
-  <div class="card">
-    <h2>Spelare</h2>
-    <p>Se alla spelare från delad Postgres.</p>
-    <a class="btn" href="/admin/members">Spelarlista</a>
-  </div>
+  <!-- Tab 2: Översikt -->
+  <div class="admin-tab-content" id="tab-oversikt">
+    <div class="admin-grid">
+      <div class="card admin-card quick-card">
+        <h2>Spelare</h2>
+        <p>Se alla spelare från delad Postgres.</p>
+        <a class="btn" href="/admin/members">Spelarlista</a>
+      </div>
 
-  <div class="card">
-    <h2>Historik</h2>
-    <p>Se alla tidigare sessioner och deltagare.</p>
-    <a class="btn" href="/admin/history">Sessionshistorik</a>
-  </div>
+      <div class="card admin-card quick-card">
+        <h2>Historik</h2>
+        <p>Tidigare sessioner och deltagare.</p>
+        <a class="btn" href="/admin/history">Sessionshistorik</a>
+      </div>
 
-  <div class="card">
-    <h2>Statistik</h2>
-    <p>Trender och insikter.</p>
-    <a class="btn" href="/admin/stats">Visa statistik</a>
-  </div>
+      <div class="card admin-card quick-card">
+        <h2>Statistik</h2>
+        <p>Trender och insikter.</p>
+        <a class="btn" href="/admin/stats">Visa statistik</a>
+      </div>
 
-  <div class="card">
-    <h2>Rapporter</h2>
-    <p>Exportera närvaro för SFR.</p>
-    <a class="btn" href="/admin/export">Exportera CSV</a>
-  </div>
+      <div class="card admin-card quick-card">
+        <h2>Rapporter</h2>
+        <p>Exportera närvaro för SFR.</p>
+        <a class="btn" href="/admin/export">Exportera CSV</a>
+      </div>
 
-  <div class="card">
-    <h2>Logg</h2>
-    <p>Spårning av admin-åtgärder.</p>
-    <a class="btn" href="/admin/audit">Visa logg</a>
+      <div class="card admin-card quick-card">
+        <h2>Logg</h2>
+        <p>Spårning av admin-åtgärder.</p>
+        <a class="btn" href="/admin/audit">Visa logg</a>
+      </div>
+    </div>
   </div>
 </section>
 

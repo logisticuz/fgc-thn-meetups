@@ -2,6 +2,14 @@ from dataclasses import dataclass
 import os
 import warnings
 
+try:
+    from dotenv import load_dotenv
+except Exception:  # pragma: no cover
+    load_dotenv = None
+
+if load_dotenv is not None:
+    load_dotenv()
+
 _WEAK_DEFAULTS = {"fgcthn2016", "change-me", ""}
 
 

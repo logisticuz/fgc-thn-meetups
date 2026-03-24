@@ -411,7 +411,7 @@ def get_all_members(search: str | None = None) -> list[dict]:
 
 
 def log_action(action: str, detail: str | None = None, created_by: str | None = None) -> None:
-    with get_connection() as conn:
+    with get_connection(timeout=0.2) as conn:
         with conn.cursor() as cur:
             cur.execute(
                 """

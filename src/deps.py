@@ -51,5 +51,5 @@ def is_admin(request: Request) -> bool:
 
 def require_admin(request: Request):
     if not is_admin(request):
-        return RedirectResponse("/admin/login", status_code=302)
+        return RedirectResponse("/login", status_code=302)
     return None

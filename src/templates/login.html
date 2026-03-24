@@ -1,0 +1,31 @@
+<!doctype html>
+<html lang="sv">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>FGC THN Meetups</title>
+    <link rel="stylesheet" href="/static/styles.css" />
+  </head>
+  <body>
+    <div class="login-page">
+      <div class="login-card">
+        <div class="login-brand">FGC THN</div>
+        <div class="login-subtitle">Meetups</div>
+        <form method="post" action="/login" class="login-form">
+          <input
+            name="pin"
+            type="password"
+            placeholder="PIN-kod"
+            required
+            autofocus
+            autocomplete="current-password"
+          />
+          {% if error %}
+          <div class="login-error">{{ error }}</div>
+          {% endif %}
+          <button class="btn primary" type="submit">Logga in</button>
+        </form>
+      </div>
+    </div>
+  </body>
+</html>

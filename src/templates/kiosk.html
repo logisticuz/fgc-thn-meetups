@@ -6,17 +6,9 @@
     <p>Skanna ditt FGC-medlemskort for att checka in.</p>
   </div>
 
-  <div id="session-start" class="panel" {% if open_session %}style="display:none"{% endif %}>
-    <h2>Start session</h2>
-    <div class="form-row">
-      <label>Location</label>
-      <input id="location" type="text" placeholder="Local" />
-    </div>
-    <div class="form-row">
-      <label>Notes</label>
-      <input id="notes" type="text" placeholder="Optional" />
-    </div>
-    <button id="start-session" class="btn primary">Start session</button>
+  <div id="session-start" class="panel" style="text-align:center{% if open_session %};display:none{% endif %}">
+    <p>Ingen aktiv träff just nu.</p>
+    <button id="start-session" class="btn primary">Starta träffen</button>
   </div>
 
   <div id="scan-panel" class="panel" {% if not open_session %}style="display:none"{% endif %}>
@@ -34,8 +26,17 @@
     </div>
     <div class="scan-result" id="scan-result"></div>
 
+    <div class="guest-checkin-section" id="member-name-section">
+      <div class="section-divider">eller checka in med namn</div>
+      <div class="link-form-row" style="margin-top:8px">
+        <input id="member-search-input" type="text" placeholder="Skriv namn eller tag" autocomplete="off" />
+      </div>
+      <ul class="guest-match-list" id="member-search-results" style="display:none"></ul>
+      <div class="guest-checkin-result" id="member-checkin-result"></div>
+    </div>
+
     <div class="guest-checkin-section" id="guest-checkin-section">
-      <div class="section-divider">eller</div>
+      <div class="section-divider">inte medlem?</div>
       <button class="btn" id="guest-checkin-toggle">Checka in som gäst</button>
       <div id="guest-checkin-form" style="display:none">
         <div class="link-form-row" style="margin-top:8px">

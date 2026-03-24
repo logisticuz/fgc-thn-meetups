@@ -467,6 +467,162 @@ input[type="file"] {
   gap: 8px;
 }
 
+.attendance-summary {
+  margin-bottom: 8px;
+}
+
+.attendance-summary-present {
+  color: var(--accent);
+  font-weight: 700;
+}
+
+.attendance-summary-total {
+  color: var(--muted);
+}
+
+.admin-shell {
+  display: grid;
+  gap: 20px;
+}
+
+.admin-tabs {
+  display: flex;
+  gap: 4px;
+  border-bottom: 1px solid var(--border);
+  padding-bottom: 0;
+}
+
+.admin-tab {
+  padding: 10px 20px;
+  border: none;
+  background: transparent;
+  color: var(--muted);
+  font-size: 14px;
+  font-weight: 600;
+  letter-spacing: 0.5px;
+  cursor: pointer;
+  border-bottom: 2px solid transparent;
+  margin-bottom: -1px;
+  transition: color 0.15s, border-color 0.15s;
+}
+
+.admin-tab:hover {
+  color: var(--text);
+}
+
+.admin-tab.active {
+  color: var(--accent);
+  border-bottom-color: var(--accent);
+}
+
+.admin-tab-content {
+  display: none;
+}
+
+.admin-tab-content.active {
+  display: block;
+}
+
+.admin-overview {
+  margin-bottom: 0;
+  padding: 18px 22px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 16px;
+  background: linear-gradient(135deg, rgba(0, 212, 255, 0.08), rgba(18, 18, 26, 0.95));
+}
+
+.admin-overview-label {
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  font-size: 12px;
+}
+
+.admin-overview-value {
+  margin-top: 4px;
+  font-size: 24px;
+  font-weight: 700;
+}
+
+.admin-overview-metrics {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.overview-pill {
+  min-width: 110px;
+  padding: 8px 12px;
+  border-radius: 12px;
+  border: 1px solid rgba(0, 212, 255, 0.3);
+  background: rgba(0, 212, 255, 0.12);
+  display: grid;
+  gap: 2px;
+}
+
+.overview-pill-muted {
+  border-color: var(--border);
+  background: rgba(148, 163, 184, 0.12);
+}
+
+.overview-pill-label {
+  color: var(--muted);
+  font-size: 11px;
+  letter-spacing: 0.6px;
+  text-transform: uppercase;
+}
+
+.overview-pill-value {
+  font-size: 24px;
+  font-weight: 700;
+  color: var(--text);
+  line-height: 1;
+}
+
+.admin-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(290px, 1fr));
+  gap: 20px;
+}
+
+.admin-card {
+  margin-bottom: 0;
+}
+
+.manual-card,
+.attendance-card {
+  grid-column: span 2;
+}
+
+.card-heading-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.card-heading-row h2 {
+  margin: 0;
+}
+
+.card-intro {
+  margin: 0 0 12px 0;
+  color: var(--muted);
+}
+
+.quick-card {
+  min-height: 172px;
+  display: grid;
+  align-content: start;
+}
+
+.quick-card .btn {
+  margin-top: 6px;
+}
+
 .idle-overlay {
   position: absolute;
   inset: 0;
@@ -659,6 +815,73 @@ input[type="file"] {
   border-color: var(--accent);
 }
 
+/* Login page */
+.login-page {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: radial-gradient(circle at top, #0f172a 0%, #0a0a0f 45%, #050507 100%);
+}
+
+.login-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 20px;
+  padding: 48px 40px;
+  width: 100%;
+  max-width: 380px;
+  text-align: center;
+  box-shadow: 0 24px 64px rgba(0, 0, 0, 0.5);
+}
+
+.login-brand {
+  font-size: 32px;
+  font-weight: 700;
+  color: var(--accent);
+  letter-spacing: 3px;
+  text-transform: uppercase;
+}
+
+.login-subtitle {
+  font-size: 16px;
+  color: var(--muted);
+  letter-spacing: 4px;
+  text-transform: uppercase;
+  margin-bottom: 32px;
+}
+
+.login-form {
+  display: grid;
+  gap: 16px;
+}
+
+.login-form input[type="password"] {
+  text-align: center;
+  font-size: 18px;
+  letter-spacing: 4px;
+  padding: 14px 16px;
+  border-radius: 10px;
+  border: 1px solid var(--border);
+  background: var(--bg);
+  color: var(--text);
+}
+
+.login-form input[type="password"]:focus {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: 0 0 0 2px rgba(0, 212, 255, 0.15);
+}
+
+.login-error {
+  color: var(--danger);
+  font-size: 14px;
+  padding: 10px 14px;
+  background: rgba(239, 68, 68, 0.1);
+  border-radius: 8px;
+  border: 1px solid rgba(239, 68, 68, 0.2);
+}
+
 @media (max-width: 720px) {
   .app-header {
     flex-direction: column;
@@ -668,5 +891,28 @@ input[type="file"] {
 
   .app-main {
     padding: 16px;
+  }
+
+  .admin-overview {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .admin-overview-value {
+    font-size: 20px;
+  }
+
+  .overview-pill-value {
+    font-size: 20px;
+  }
+
+  .manual-card,
+  .attendance-card {
+    grid-column: span 1;
+  }
+
+  .login-card {
+    margin: 16px;
+    padding: 32px 24px;
   }
 }

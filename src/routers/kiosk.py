@@ -16,6 +16,10 @@ class LinkAndCheckinRequest(BaseModel):
     player_name: str | None = None
 
 
+class MemberSearchCheckinRequest(BaseModel):
+    query: str
+
+
 class GuestCheckinRequest(BaseModel):
     guest_name: str
 
@@ -97,6 +101,63 @@ async def api_checkin(payload: CheckinRequest):
             "streak": streak,
         }
     )
+
+
+@router.get("/api/players/search")
+async def api_player_search(q: str = ""):
+    q = q.strip()
+    if len(q) < 2:
+        return {"results": []}
+    results = crud.search_players_by_name(q)
+    return {"results": [{"uuid": p["uuid"], "name": p["name"], "tag": p.get("tag", "")} for p in results]}
+
+
+@router.post("/api/member/checkin")
+async def api_member_checkin(payload: MemberSearchCheckinRequest):
+    session = crud.get_open_session()
+    if not session:
+        return JSONResponse({"status": "no_session"})
+
+    player = crud.get_player_by_uuid(payload.query)
+    if not player:
+        results = crud.search_players_by_name(payload.query)
+        if len(results) == 1:
+            player = results[0]
+
+    if not player:
+        return JSONResponse({"status": "not_found"})
+
+    existing = crud.get_checkin_for_player(session["id"], player["uuid"])
+    if existing:
+        if existing["checkout_time"] is not None:
+            total = crud.count_checkins(session["id"])
+            return JSONResponse({"status": "already_left", "member_name": player["name"], "total": total})
+        checkout = crud.checkout_player(session["id"], player["uuid"])
+        present = crud.count_present(session["id"])
+        return JSONResponse({
+            "status": "checkout",
+            "member_name": player["name"],
+            "checkout_time": checkout["checkout_time"].isoformat() if checkout and checkout["checkout_time"] else "",
+            "present": present,
+        })
+
+    checkin = crud.create_checkin(
+        session_id=session["id"],
+        player_uuid=player["uuid"],
+        guest_name=None,
+        method="kiosk_name",
+    )
+    total = crud.count_checkins(session["id"])
+    present = crud.count_present(session["id"])
+    streak = crud.get_member_streak(player["uuid"]) + 1
+    return JSONResponse({
+        "status": "ok",
+        "member_name": player["name"],
+        "checkin_time": checkin["checkin_time"].isoformat(),
+        "checkin_number": total,
+        "present": present,
+        "streak": streak,
+    })
 
 
 @router.get("/api/sessions/attendance")

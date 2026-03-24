@@ -7,7 +7,7 @@ without requiring a running Postgres database.
 from datetime import datetime, timedelta
 from unittest.mock import patch, AsyncMock
 
-from src import crud
+from src import crud, auth
 from src import ebas
 from src.validation import validate_personnummer, sanitize_personnummer, sanitize_phone
 
@@ -55,27 +55,76 @@ def _guest_checkin(cid=10, guest_name="Joel"):
     return _checkin(cid=cid, player_uuid=None, guest_name=guest_name)
 
 
-# --- Auth tests ---
+# --- Auth gate tests ---
 
-def test_start_session_requires_admin(client):
-    response = client.post("/api/sessions/start", json={"location": "Lokal", "notes": ""})
+def test_unauthenticated_page_redirects_to_login(unauthenticated_client):
+    response = unauthenticated_client.get("/kiosk", follow_redirects=False)
+    assert response.status_code == 307
+    assert "/login" in response.headers["location"]
+
+
+def test_unauthenticated_api_returns_401(unauthenticated_client):
+    response = unauthenticated_client.post("/api/checkin", json={"qr_data": "FGC-TEST01"})
     assert response.status_code == 401
     assert response.json()["status"] == "unauthorized"
 
 
-def test_end_session_requires_admin(client):
-    response = client.post("/api/sessions/end")
-    assert response.status_code == 401
+def test_login_page_accessible(unauthenticated_client):
+    response = unauthenticated_client.get("/login")
+    assert response.status_code == 200
 
 
-def test_headcount_requires_admin(client):
-    response = client.post("/api/headcount", json={"count": 12})
+@patch.object(crud, "log_action")
+def test_login_success(mock_log, unauthenticated_client):
+    response = unauthenticated_client.post("/login", data={"pin": "fgcthn2016"}, follow_redirects=False)
+    assert response.status_code == 302
+    assert response.headers["location"] == "/kiosk"
+
+
+@patch.object(crud, "log_action")
+def test_login_wrong_pin(mock_log, unauthenticated_client):
+    response = unauthenticated_client.post("/login", data={"pin": "wrong"})
+    assert response.status_code == 200
+    assert "Fel PIN" in response.text
+
+
+@patch.object(crud, "log_action")
+def test_login_lockout(mock_log, unauthenticated_client):
+    auth.clear_attempts("testclient")
+    for _ in range(5):
+        unauthenticated_client.post("/login", data={"pin": "wrong"})
+    response = unauthenticated_client.post("/login", data={"pin": "wrong"})
+    assert "många försök" in response.text or "låst" in response.text
+    auth.clear_attempts("testclient")
+
+
+def test_logout_redirects(client):
+    response = client.get("/logout", follow_redirects=False)
+    assert response.status_code == 302
+    assert response.headers["location"] == "/login"
+
+
+# --- Admin auth tests ---
+
+def test_start_session_requires_admin(unauthenticated_client):
+    response = unauthenticated_client.post("/api/sessions/start", json={"location": "Lokal", "notes": ""})
     assert response.status_code == 401
     assert response.json()["status"] == "unauthorized"
 
 
-def test_delete_checkin_requires_admin(client):
-    response = client.delete("/api/checkin/1")
+def test_end_session_requires_admin(unauthenticated_client):
+    response = unauthenticated_client.post("/api/sessions/end")
+    assert response.status_code == 401
+
+
+def test_headcount_requires_admin(unauthenticated_client):
+    response = unauthenticated_client.post("/api/headcount", json={"count": 12})
+    assert response.status_code == 401
+    assert response.json()["status"] == "unauthorized"
+
+
+def test_delete_checkin_requires_admin(unauthenticated_client):
+    response = unauthenticated_client.delete("/api/checkin/1")
     assert response.status_code == 401
 
 

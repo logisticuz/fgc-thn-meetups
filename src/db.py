@@ -23,5 +23,5 @@ def _get_pool():
     return _pool
 
 
-def get_connection():
-    return _get_pool().connection()
+def get_connection(timeout: float | None = None):
+    return _get_pool().connection(timeout=timeout)

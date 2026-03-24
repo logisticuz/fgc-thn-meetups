@@ -1,11 +1,14 @@
+import logging
+
 from fastapi import APIRouter, Request, Form
 from fastapi.responses import HTMLResponse, RedirectResponse, JSONResponse
 from pydantic import BaseModel
 from ..config import settings
 from ..deps import templates, is_admin, require_admin, extract_token
-from .. import crud
+from .. import crud, auth
 
 router = APIRouter()
+logger = logging.getLogger(__name__)
 
 
 class SessionStart(BaseModel):
@@ -17,25 +20,58 @@ class HeadcountRequest(BaseModel):
     count: int
 
 
+def _safe_log_action(action: str, details: str, actor: str) -> None:
+    try:
+        crud.log_action(action, details, actor)
+    except Exception as exc:
+        logger.warning("Audit logging unavailable: %s", exc)
+
+
 # --- Auth ---
 
-@router.get("/admin/login", response_class=HTMLResponse)
-async def admin_login(request: Request):
-    return templates.TemplateResponse("admin_login.html", {"request": request, "error": None})
+@router.get("/login", response_class=HTMLResponse)
+async def login_page(request: Request):
+    return templates.TemplateResponse("login.html", {"request": request, "error": None})
 
 
-@router.post("/admin/login", response_class=HTMLResponse)
-async def admin_login_post(request: Request, pin: str = Form(...)):
+@router.post("/login", response_class=HTMLResponse)
+async def login_post(request: Request, pin: str = Form(...)):
+    ip = auth.get_client_ip(request)
+
+    if auth.is_locked_out(ip):
+        remaining = auth.remaining_lockout_seconds(ip)
+        minutes = remaining // 60 + 1
+        _safe_log_action("login_blocked", f"Locked out IP {ip} attempted login", "system")
+        return templates.TemplateResponse("login.html", {
+            "request": request,
+            "error": f"För många försök. Försök igen om {minutes} min.",
+        })
+
     if pin == settings.admin_pin:
+        auth.clear_attempts(ip)
+        request.session["authenticated"] = True
         request.session["is_admin"] = True
-        return RedirectResponse("/admin", status_code=302)
-    return templates.TemplateResponse("admin_login.html", {"request": request, "error": "Invalid PIN"})
+        _safe_log_action("login_success", f"Login from {ip}", "admin")
+        return RedirectResponse("/kiosk", status_code=302)
+
+    auth.record_failed_attempt(ip)
+    attempts_left = auth.MAX_ATTEMPTS - auth.failed_count(ip)
+    _safe_log_action("login_failed", f"Failed login from {ip} ({attempts_left} attempts left)", "system")
+
+    if attempts_left <= 0:
+        error = "Kontot är låst i 15 minuter."
+    elif attempts_left <= 2:
+        error = f"Fel PIN. {attempts_left} försök kvar."
+    else:
+        error = "Fel PIN-kod."
+
+    return templates.TemplateResponse("login.html", {"request": request, "error": error})
 
 
-@router.get("/admin/logout")
-async def admin_logout(request: Request):
+@router.get("/logout")
+async def logout(request: Request):
     request.session.clear()
-    return RedirectResponse("/admin/login", status_code=302)
+    return RedirectResponse("/login", status_code=302)
 
 
 # --- Dashboard ---

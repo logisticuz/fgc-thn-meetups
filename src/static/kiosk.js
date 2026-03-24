@@ -86,12 +86,10 @@ async function fetchAttendance() {
 }
 
 async function startSession() {
-  const location = document.getElementById("location").value;
-  const notes = document.getElementById("notes").value;
   const res = await fetch("/api/sessions/start", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ location, notes }),
+    body: JSON.stringify({ location: "Studiefrämjandet, Kungsgatan 42, 461 34 Trollhättan", notes: "" }),
   });
   if (!res.ok) {
     setStatus("ERROR", "warn");
@@ -412,6 +410,93 @@ async function searchGuestCheckins() {
     guestSearchResult.textContent = "Kunde inte söka — försök igen.";
   }
   resetIdleTimer();
+}
+
+// === Member name checkin ===
+
+const memberSearchInput = document.getElementById("member-search-input");
+const memberSearchResults = document.getElementById("member-search-results");
+const memberCheckinResult = document.getElementById("member-checkin-result");
+let memberSearchTimeout = null;
+
+async function searchMembers() {
+  const q = memberSearchInput ? memberSearchInput.value.trim() : "";
+  if (q.length < 2) {
+    if (memberSearchResults) memberSearchResults.style.display = "none";
+    return;
+  }
+  try {
+    const res = await fetch(`/api/players/search?q=${encodeURIComponent(q)}`);
+    const data = await res.json();
+    if (!data.results || data.results.length === 0) {
+      if (memberSearchResults) {
+        memberSearchResults.style.display = "none";
+      }
+      if (memberCheckinResult) {
+        memberCheckinResult.textContent = "Ingen spelare hittad.";
+        memberCheckinResult.className = "guest-checkin-result error";
+      }
+      return;
+    }
+    if (memberCheckinResult) { memberCheckinResult.textContent = ""; memberCheckinResult.className = "guest-checkin-result"; }
+    if (memberSearchResults) {
+      memberSearchResults.innerHTML = "";
+      for (const p of data.results) {
+        const li = document.createElement("li");
+        const nameSpan = document.createElement("span");
+        nameSpan.textContent = p.name + (p.tag ? ` (${p.tag})` : "");
+        li.appendChild(nameSpan);
+        const btn = document.createElement("button");
+        btn.className = "btn primary btn-sm";
+        btn.textContent = "Checka in";
+        btn.addEventListener("click", () => checkinMemberByUuid(p.uuid, p.name));
+        li.appendChild(btn);
+        memberSearchResults.appendChild(li);
+      }
+      memberSearchResults.style.display = "block";
+    }
+  } catch (err) {
+    if (memberCheckinResult) { memberCheckinResult.textContent = "Sökfel — försök igen."; memberCheckinResult.className = "guest-checkin-result error"; }
+  }
+  resetIdleTimer();
+}
+
+async function checkinMemberByUuid(uuid, name) {
+  if (memberSearchResults) memberSearchResults.style.display = "none";
+  if (memberSearchInput) memberSearchInput.value = "";
+  try {
+    const res = await fetch("/api/member/checkin", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ query: uuid }),
+    });
+    const data = await res.json();
+    if (data.status === "ok") {
+      setStatus("CHECKED IN", "ok");
+      if (memberCheckinResult) { memberCheckinResult.textContent = `Välkommen ${data.member_name}! #${data.checkin_number}`; memberCheckinResult.className = "guest-checkin-result success"; }
+      counterValue.textContent = data.checkin_number;
+      presentValue.textContent = data.present;
+    } else if (data.status === "checkout") {
+      setStatus("CHECKED OUT", "info");
+      if (memberCheckinResult) { memberCheckinResult.textContent = `${data.member_name} utcheckad.`; memberCheckinResult.className = "guest-checkin-result"; }
+      presentValue.textContent = data.present;
+    } else if (data.status === "already_left") {
+      if (memberCheckinResult) { memberCheckinResult.textContent = `${data.member_name} har redan lämnat.`; memberCheckinResult.className = "guest-checkin-result"; }
+    } else {
+      if (memberCheckinResult) { memberCheckinResult.textContent = "Kunde inte checka in."; memberCheckinResult.className = "guest-checkin-result error"; }
+    }
+  } catch (err) {
+    if (memberCheckinResult) { memberCheckinResult.textContent = "Nätverksfel."; memberCheckinResult.className = "guest-checkin-result error"; }
+  }
+  resetIdleTimer();
+  setTimeout(() => { if (memberCheckinResult) { memberCheckinResult.textContent = ""; memberCheckinResult.className = "guest-checkin-result"; } }, 5000);
+}
+
+if (memberSearchInput) {
+  memberSearchInput.addEventListener("input", () => {
+    clearTimeout(memberSearchTimeout);
+    memberSearchTimeout = setTimeout(searchMembers, 300);
+  });
 }
 
 // === Event listeners ===

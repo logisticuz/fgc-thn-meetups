@@ -1,6 +1,6 @@
 # FGC THN — Unified System Roadmap
 
-Senast uppdaterad: 2026-03-23
+Senast uppdaterad: 2026-03-24
 
 ## Vision
 Tre system, en Postgres, en spelaridentitet. Checka in en gang → syns overallt.
@@ -13,7 +13,7 @@ Tre system, en Postgres, en spelaridentitet. Checka in en gang → syns overallt
 |--------|------|--------|
 | Turneringar | `fgt-checkin-system` | Produktion |
 | Medlemskort | `fgt-member-card` | DEV kor, behover polish |
-| Meetups | `fgc-thn-meetups` | Feature-complete, behover E2E-test + prod-deploy |
+| Meetups | `fgc-thn-meetups` | Produktion (meetup.fgctrollhattan.se) |
 
 ---
 
@@ -38,9 +38,13 @@ Tre system, en Postgres, en spelaridentitet. Checka in en gang → syns overallt
 - [x] Repo publikt pa GitHub
 - [x] Dockerfile + docker-compose.dev.yml
 - [x] Gast → medlem-registrering (kiosk + admin, Luhn-validering, n8n/eBas-integration)
-- [ ] E2E-test mot riktig Postgres: session → QR-checkin → gast → bli medlem → headcount → statistik → export
-- [ ] docker-compose.prod.yml + nginx.conf
-- [ ] Prod-deploy pa Raspberry Pi
+- [x] E2E-test mot riktig Postgres (dev + prod)
+- [x] docker-compose.prod.yml
+- [x] Prod-deploy pa Raspberry Pi (port 8004, 1 worker)
+- [x] DNS: meetup.fgctrollhattan.se → 213.89.64.103 (One.com)
+- [x] SSL: Let's Encrypt via certbot (giltigt till 2026-06-22)
+- [x] Nginx reverse proxy (dockeriserad, delar config med checkin-system)
+- [ ] Sakerhets-hardening (PIN-lockout, rate-limit, localhost-bind, CSRF)
 
 ### Medlemskort (fgt-member-card)
 
@@ -70,21 +74,22 @@ Tre system, en Postgres, en spelaridentitet. Checka in en gang → syns overallt
 
 ### Infrastruktur
 
+- [x] DNS: `meetup.fgctrollhattan.se` → Pi:ns IP (One.com)
+- [x] Meetup + Checkin kor sida vid sida pa Pi 4 (~1.5 GiB ledigt RAM)
 - [ ] DNS: `medlemskort.fgctrollhattan.se` → Pi:ns IP (One.com)
 - [ ] Docker-prefix bestamda: `fgt-card-dev/prod`, `fgt-meetup-dev/prod`
-- [ ] SSL-cert for nya domaner
-- [ ] Testa att alla tre system kor samtidigt pa Pi:n
+- [ ] SSL-cert for medlemskort-domanen
+- [ ] Sakerhets-hardening for alla system (gemensam insats)
 
 ---
 
 ## Nasta steg (prioritetsordning)
 
-1. **Nu:** E2E-test av meetup-systemet mot riktig Postgres + n8n
-2. **Nasta:** Prod-config for meetup (docker-compose.prod.yml + nginx)
-3. **Sen:** DNS + SSL + prod-deploy av medlemskort
-4. **Sen:** Testa hela kedjan end-to-end (turnering → kort → meetup)
-5. **Framtid:** Spelarstatistik pa medlemskortet
-6. **Framtid:** Insights-integration, statistik over alla system
+1. **Nu:** Sakerhets-hardening (PIN-lockout, rate-limit, CSRF, localhost-bind)
+2. **Nasta:** DNS + SSL + prod-deploy av medlemskort
+3. **Sen:** Testa hela kedjan end-to-end (turnering → kort → meetup)
+4. **Framtid:** Spelarstatistik pa medlemskortet
+5. **Framtid:** Insights-integration, statistik over alla system
 
 ---
 
