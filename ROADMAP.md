@@ -12,7 +12,7 @@ Tre system, en Postgres, en spelaridentitet. Checka in en gang → syns overallt
 | System | Repo | Status |
 |--------|------|--------|
 | Turneringar | `fgt-checkin-system` | Produktion |
-| Medlemskort | `fgt-member-card` | DEV kor, behover polish |
+| Medlemskort | `fgt-member-card` | Produktion (membercard.fgctrollhattan.se) |
 | Meetups | `fgc-thn-meetups` | Produktion (meetup.fgctrollhattan.se) |
 
 ---
@@ -44,7 +44,8 @@ Tre system, en Postgres, en spelaridentitet. Checka in en gang → syns overallt
 - [x] DNS: meetup.fgctrollhattan.se → 213.89.64.103 (One.com)
 - [x] SSL: Let's Encrypt via certbot (giltigt till 2026-06-22)
 - [x] Nginx reverse proxy (dockeriserad, delar config med checkin-system)
-- [ ] Sakerhets-hardening (PIN-lockout, rate-limit, localhost-bind, CSRF)
+- [x] Sakerhets-hardening: auth gate (login-sida), PIN-lockout (5 forsok, 15 min)
+- [ ] Sakerhets-hardening: security headers, CSRF, session timeout (laag prio)
 
 ### Medlemskort (fgt-member-card)
 
@@ -55,11 +56,12 @@ Tre system, en Postgres, en spelaridentitet. Checka in en gang → syns overallt
 - [x] Cookie-baserad session (behover inte logga in igen)
 - [x] GDPR-text pa landing page
 - [x] Docker-setup (dev), ansluter till turneringssystemets natverk
+- [x] DNS: `membercard.fgctrollhattan.se` A-record pa One.com
+- [x] SSL: Let's Encrypt via certbot
+- [x] Prod-deploy pa Raspberry Pi (port 8003, deploy 2026-03-24)
+- [x] Nginx reverse proxy + HTTPS redirect
 - [ ] Byt logotyp till transparent bakgrund (vantar pa fil fran Viktor)
 - [ ] Visa spelarstatistik pa kortet (antal events, favorite game, streak)
-- [ ] DNS: satt upp `medlemskort.fgctrollhattan.se` A-record pa One.com
-- [ ] SSL: certbot for medlemskort-domanen
-- [ ] Prod-deploy pa Raspberry Pi
 - [ ] Testa med riktiga medlemmar
 
 ### Turneringssystemet (fgt-checkin-system)
@@ -76,20 +78,19 @@ Tre system, en Postgres, en spelaridentitet. Checka in en gang → syns overallt
 
 - [x] DNS: `meetup.fgctrollhattan.se` → Pi:ns IP (One.com)
 - [x] Meetup + Checkin kor sida vid sida pa Pi 4 (~1.5 GiB ledigt RAM)
-- [ ] DNS: `medlemskort.fgctrollhattan.se` → Pi:ns IP (One.com)
+- [x] DNS: `membercard.fgctrollhattan.se` → Pi:ns IP (One.com)
+- [x] SSL-cert for medlemskort (Let's Encrypt)
 - [ ] Docker-prefix bestamda: `fgt-card-dev/prod`, `fgt-meetup-dev/prod`
-- [ ] SSL-cert for medlemskort-domanen
-- [ ] Sakerhets-hardening for alla system (gemensam insats)
+- [ ] Sakerhets-hardening for alla system (gemensam insats, laag prio)
 
 ---
 
 ## Nasta steg (prioritetsordning)
 
-1. **Nu:** Sakerhets-hardening (PIN-lockout, rate-limit, CSRF, localhost-bind)
-2. **Nasta:** DNS + SSL + prod-deploy av medlemskort
-3. **Sen:** Testa hela kedjan end-to-end (turnering → kort → meetup)
-4. **Framtid:** Spelarstatistik pa medlemskortet
-5. **Framtid:** Insights-integration, statistik over alla system
+1. **Nu:** Spelarstatistik pa medlemskortet (events, favorit-spel, streak)
+2. **Nasta:** Testa hela kedjan end-to-end (turnering → kort → meetup)
+3. **Sen:** Insights-integration, statistik over alla system
+4. **Laag prio:** Security headers, CSRF, session timeout
 
 ---
 

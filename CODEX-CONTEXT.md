@@ -14,7 +14,7 @@ Tre system delar en Postgres-databas (`fgc_checkin`):
 | System | Repo | Port | Status |
 |--------|------|------|--------|
 | Turneringar | `fgt-checkin-system` | 8001 | Produktion |
-| Medlemskort | `fgt-member-card` | 8003 | DEV |
+| Medlemskort | `fgt-member-card` | 8003 | **Produktion** (deploy 2026-03-24) |
 | **Meetups** | `fgc-thn-meetups` | 8004 | **DEV, migrering klar** |
 
 Alla tre ansluter till Docker-natverket `fgt-dev_fgt-net` for att na Postgres och n8n.
