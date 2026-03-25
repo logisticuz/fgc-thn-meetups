@@ -16,6 +16,7 @@ _WEAK_DEFAULTS = {"fgcthn2016", "change-me", ""}
 @dataclass(frozen=True)
 class Settings:
     admin_pin: str = os.getenv("ADMIN_PIN", "fgcthn2016")
+    dev_pin: str = os.getenv("DEV_PIN", "")
     secret_key: str = os.getenv("SECRET_KEY", "change-me")
     database_url: str = os.getenv(
         "DATABASE_URL",

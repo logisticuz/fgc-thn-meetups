@@ -418,6 +418,15 @@ def get_session_by_id(session_id: int) -> dict | None:
             return _row_dict(cur, row) if row else None
 
 
+def delete_session(session_id: int) -> bool:
+    with get_connection() as conn:
+        with conn.cursor() as cur:
+            cur.execute("DELETE FROM meetup_headcounts WHERE session_id = %s", (session_id,))
+            cur.execute("DELETE FROM meetup_checkins WHERE session_id = %s", (session_id,))
+            cur.execute("DELETE FROM meetup_sessions WHERE id = %s", (session_id,))
+            return cur.rowcount > 0
+
+
 def delete_checkin(checkin_id: int) -> bool:
     with get_connection() as conn:
         with conn.cursor() as cur:

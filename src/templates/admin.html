@@ -21,6 +21,7 @@
   <div class="admin-tabs">
     <button class="admin-tab active" data-tab="tab-traff">Träff</button>
     <button class="admin-tab" data-tab="tab-oversikt">Översikt</button>
+    {% if is_dev %}<button class="admin-tab dev-tab" data-tab="tab-dev">Dev</button>{% endif %}
   </div>
 
   <!-- Tab 1: Träff -->
@@ -148,6 +149,20 @@
     </div>
   </div>
 </section>
+
+  {% if is_dev %}
+  <!-- Tab 3: Dev -->
+  <div class="admin-tab-content" id="tab-dev">
+    <div class="card admin-card dev-card">
+      <div class="card-heading-row">
+        <h2>Sessionshantering</h2>
+        <span class="status-pill" style="background:var(--danger);color:#fff">DEV</span>
+      </div>
+      <p>Radera sessioner med all tillhörande data (checkins + headcounts).</p>
+      <div id="dev-sessions-list" class="dev-sessions-list">Laddar...</div>
+    </div>
+  </div>
+  {% endif %}
 
 <div class="register-modal" id="admin-register-modal" style="display:none">
   <div class="register-modal-content">

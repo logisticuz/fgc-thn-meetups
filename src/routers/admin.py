@@ -51,11 +51,17 @@ async def login_post(request: Request, pin: str = Form(...)):
             "error": f"För många försök. Försök igen om {minutes} min.",
         })
 
-    if pin == settings.admin_pin:
+    is_dev = settings.dev_pin and pin == settings.dev_pin
+    is_admin_pin = pin == settings.admin_pin
+
+    if is_dev or is_admin_pin:
         auth.clear_attempts(ip)
         request.session["authenticated"] = True
         request.session["is_admin"] = True
-        _safe_log_action("login_success", f"Login from {ip}", "admin")
+        if is_dev:
+            request.session["is_dev"] = True
+        role = "dev" if is_dev else "admin"
+        _safe_log_action("login_success", f"Login from {ip} ({role})", role)
         return RedirectResponse("/kiosk", status_code=302)
 
     auth.record_failed_attempt(ip)
@@ -86,9 +92,10 @@ async def admin(request: Request):
     if guard:
         return guard
     open_session = crud.get_open_session()
+    is_dev = request.session.get("is_dev", False)
     return templates.TemplateResponse(
         "admin.html",
-        {"request": request, "open_session": open_session, "message": None, "error": None},
+        {"request": request, "open_session": open_session, "message": None, "error": None, "is_dev": is_dev},
     )
 
 
@@ -307,6 +314,46 @@ async def api_calendar_day(request: Request, session_id: int):
         "checkins": checkins,
         "headcounts": headcounts,
     }
+
+
+# --- Dev tools ---
+
+def _require_dev(request: Request):
+    if not request.session.get("is_dev"):
+        return JSONResponse({"status": "unauthorized"}, status_code=401)
+    return None
+
+
+@router.delete("/api/dev/session/{session_id}")
+async def api_dev_delete_session(request: Request, session_id: int):
+    denied = _require_dev(request)
+    if denied:
+        return denied
+    session = crud.get_session_by_id(session_id)
+    if not session:
+        return JSONResponse({"status": "not_found"}, status_code=404)
+    crud.delete_session(session_id)
+    _safe_log_action("dev_delete_session", f"Session {session_id} deleted", "dev")
+    return {"status": "ok"}
+
+
+@router.get("/api/dev/sessions")
+async def api_dev_list_sessions(request: Request):
+    denied = _require_dev(request)
+    if denied:
+        return denied
+    sessions = crud.get_all_sessions()
+    result = []
+    for s in sessions:
+        result.append({
+            "id": s["id"],
+            "start_time": s["start_time"].isoformat() if s["start_time"] else None,
+            "end_time": s["end_time"].isoformat() if s.get("end_time") else None,
+            "status": s["status"],
+            "location": s.get("location", ""),
+            "total_checkins": s.get("total_checkins", 0),
+        })
+    return {"sessions": result}
 
 
 # --- History ---

@@ -481,6 +481,50 @@ if (calGrid) {
   renderCalendar(calYear, calMonth);
 }
 
+// === Dev tools ===
+const devSessionsList = document.getElementById("dev-sessions-list");
+
+async function loadDevSessions() {
+  if (!devSessionsList) return;
+  try {
+    const res = await fetch("/api/dev/sessions");
+    if (res.status === 401) { devSessionsList.textContent = "Ej behörig"; return; }
+    const data = await res.json();
+    clearChildren(devSessionsList);
+    if (!data.sessions || data.sessions.length === 0) {
+      devSessionsList.appendChild(el("p", { className: "attendance-empty", textContent: "Inga sessioner." }));
+      return;
+    }
+    for (const s of data.sessions) {
+      const date = s.start_time ? new Date(s.start_time).toLocaleDateString("sv-SE") : "-";
+      const time = s.start_time ? new Date(s.start_time).toLocaleTimeString("sv-SE", { hour: "2-digit", minute: "2-digit" }) : "";
+      const row = el("div", { className: "dev-session-row" }, [
+        el("div", { className: "dev-session-info" }, [
+          el("span", { className: "session-date", textContent: date }),
+          el("span", { className: "session-meta", textContent: `${time} · ${s.total_checkins} checkins · ${s.status}` }),
+        ]),
+        el("button", {
+          className: "btn-danger",
+          textContent: "Radera",
+          onclick: async () => {
+            if (!confirm(`Radera session ${date} (${s.total_checkins} checkins)? Detta kan inte ångras.`)) return;
+            await fetch(`/api/dev/session/${s.id}`, { method: "DELETE" });
+            loadDevSessions();
+          },
+        }),
+      ]);
+      devSessionsList.appendChild(row);
+    }
+  } catch (e) { devSessionsList.textContent = "Kunde inte ladda sessioner."; }
+}
+
+// Load dev sessions when dev tab is clicked
+document.querySelectorAll(".admin-tab").forEach((tab) => {
+  tab.addEventListener("click", () => {
+    if (tab.dataset.tab === "tab-dev") loadDevSessions();
+  });
+});
+
 loadAttendance();
 loadHeadcounts();
 setInterval(loadAttendance, 15000);

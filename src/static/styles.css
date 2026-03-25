@@ -17,6 +17,7 @@
 body {
   margin: 0;
   background: radial-gradient(circle at top, #0f172a 0%, #0a0a0f 45%, #050507 100%);
+  background-attachment: fixed;
   color: var(--text);
   font-family: "Trebuchet MS", Verdana, sans-serif;
 }
@@ -1137,12 +1138,73 @@ input[type="file"] {
 
 .app-footer {
   text-align: center;
-  padding: 24px 16px;
-  margin-top: auto;
+  padding: 32px 16px 8px;
 }
 
 .app-footer p {
-  font-size: 12px;
-  color: #444;
-  letter-spacing: 0.05em;
+  margin: 0;
+  font-size: 10px;
+  color: #555;
+  letter-spacing: 0.06em;
+  opacity: 0.4;
+}
+
+/* === Dev tab === */
+
+.dev-tab {
+  color: var(--danger) !important;
+  border-bottom-color: transparent !important;
+}
+
+.dev-tab.active {
+  border-bottom-color: var(--danger) !important;
+}
+
+.dev-sessions-list {
+  margin-top: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.dev-session-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 10px 14px;
+  background: var(--surface);
+  border-radius: 8px;
+  font-size: 14px;
+}
+
+.dev-session-info {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  color: var(--text);
+}
+
+.dev-session-info .session-date {
+  font-weight: 600;
+}
+
+.dev-session-info .session-meta {
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.btn-danger {
+  padding: 6px 14px;
+  border: 1px solid var(--danger);
+  background: rgba(239, 68, 68, 0.1);
+  color: var(--danger);
+  border-radius: 6px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+.btn-danger:hover {
+  background: rgba(239, 68, 68, 0.25);
 }
