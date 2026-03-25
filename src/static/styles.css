@@ -936,6 +936,7 @@ input[type="file"] {
   justify-content: space-between;
   align-items: center;
   margin-bottom: 16px;
+  max-width: 420px;
 }
 
 .calendar-header h2 {
@@ -953,6 +954,7 @@ input[type="file"] {
   display: grid;
   grid-template-columns: repeat(7, 1fr);
   gap: 4px;
+  max-width: 420px;
 }
 
 .calendar-weekday {
@@ -965,12 +967,12 @@ input[type="file"] {
 }
 
 .calendar-day {
-  aspect-ratio: 1;
   display: flex;
   align-items: center;
   justify-content: center;
   border-radius: 8px;
-  font-size: 14px;
+  font-size: 13px;
+  padding: 8px 0;
   color: var(--muted);
   background: transparent;
   border: 1px solid transparent;
