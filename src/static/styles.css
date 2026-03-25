@@ -1132,3 +1132,17 @@ input[type="file"] {
 .revenue-status.saved {
   color: var(--success);
 }
+
+/* === Footer === */
+
+.app-footer {
+  text-align: center;
+  padding: 24px 16px;
+  margin-top: auto;
+}
+
+.app-footer p {
+  font-size: 12px;
+  color: #444;
+  letter-spacing: 0.05em;
+}
