@@ -1108,3 +1108,25 @@ input[type="file"] {
   color: var(--muted);
   font-size: 13px;
 }
+
+/* === Revenue === */
+
+.revenue-input-row {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.revenue-input-row input {
+  flex: 1;
+}
+
+.revenue-status {
+  margin-top: 8px;
+  font-size: 13px;
+  color: var(--muted);
+}
+
+.revenue-status.saved {
+  color: var(--success);
+}

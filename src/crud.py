@@ -55,6 +55,26 @@ def end_session(session_id: int) -> None:
             )
 
 
+def update_session_revenue(session_id: int, amount: float) -> None:
+    with get_connection() as conn:
+        with conn.cursor() as cur:
+            cur.execute(
+                "UPDATE meetup_sessions SET kiosk_revenue = %s WHERE id = %s",
+                (amount, session_id),
+            )
+
+
+def get_session_revenue(session_id: int) -> float:
+    with get_connection() as conn:
+        with conn.cursor() as cur:
+            cur.execute(
+                "SELECT COALESCE(kiosk_revenue, 0) FROM meetup_sessions WHERE id = %s",
+                (session_id,),
+            )
+            row = cur.fetchone()
+            return float(row[0]) if row else 0.0
+
+
 def get_player_by_card_id(card_id: str) -> dict | None:
     with get_connection() as conn:
         with conn.cursor() as cur:
@@ -345,6 +365,7 @@ def get_sessions_for_month(year: int, month: int) -> list[dict]:
                 """
                 SELECT s.id, s.start_time, s.end_time, s.status,
                        COALESCE(s.location, '') AS location,
+                       COALESCE(s.kiosk_revenue, 0) AS kiosk_revenue,
                        COUNT(c.id) AS total_checkins,
                        COALESCE(MAX(h.count), 0) AS peak_headcount
                 FROM meetup_sessions s
@@ -385,7 +406,8 @@ def get_session_by_id(session_id: int) -> dict | None:
         with conn.cursor() as cur:
             cur.execute(
                 """
-                SELECT id, start_time, end_time, location, notes, status, created_at
+                SELECT id, start_time, end_time, location, notes, status, created_at,
+                       COALESCE(kiosk_revenue, 0) AS kiosk_revenue
                 FROM meetup_sessions
                 WHERE id = %s
                 LIMIT 1

@@ -20,6 +20,10 @@ class HeadcountRequest(BaseModel):
     count: int
 
 
+class RevenueRequest(BaseModel):
+    amount: float
+
+
 def _safe_log_action(action: str, details: str, actor: str) -> None:
     try:
         crud.log_action(action, details, actor)
@@ -130,6 +134,28 @@ async def api_get_headcounts():
     if not session:
         return {"headcounts": []}
     return {"headcounts": crud.get_session_headcounts(session["id"])}
+
+
+# --- Kiosk Revenue ---
+
+@router.post("/api/kiosk-revenue")
+async def api_kiosk_revenue(request: Request, payload: RevenueRequest):
+    if not is_admin(request):
+        return JSONResponse({"status": "unauthorized"}, status_code=401)
+    session = crud.get_open_session()
+    if not session:
+        return JSONResponse({"status": "no_session"}, status_code=400)
+    crud.update_session_revenue(session["id"], payload.amount)
+    return {"status": "ok", "amount": payload.amount}
+
+
+@router.get("/api/kiosk-revenue")
+async def api_get_kiosk_revenue(request: Request):
+    session = crud.get_open_session()
+    if not session:
+        return {"amount": 0}
+    amount = crud.get_session_revenue(session["id"])
+    return {"amount": amount}
 
 
 # --- Checkin management ---
@@ -250,6 +276,7 @@ async def api_calendar(request: Request, year: int, month: int):
             "peak_headcount": s["peak_headcount"],
             "duration_minutes": duration_minutes,
             "location": s["location"],
+            "kiosk_revenue": float(s.get("kiosk_revenue", 0)),
         })
     return {"year": year, "month": month, "sessions": by_date}
 
@@ -276,6 +303,7 @@ async def api_calendar_day(request: Request, session_id: int):
         "total_checkins": len(checkins),
         "peak_headcount": peak,
         "duration_minutes": duration_minutes,
+        "kiosk_revenue": float(session.get("kiosk_revenue", 0)),
         "checkins": checkins,
         "headcounts": headcounts,
     }

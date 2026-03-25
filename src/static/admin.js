@@ -287,6 +287,57 @@ document.querySelectorAll(".admin-tab").forEach((tab) => {
   });
 });
 
+// === Revenue ===
+const revenueBtn = document.getElementById("revenue-btn");
+const revenueInput = document.getElementById("revenue-input");
+const revenueStatus = document.getElementById("revenue-status");
+
+async function loadRevenue() {
+  if (!revenueInput) return;
+  try {
+    const res = await fetch("/api/kiosk-revenue");
+    const data = await res.json();
+    if (data.amount > 0) {
+      revenueInput.value = data.amount;
+      revenueStatus.textContent = `Sparat: ${data.amount} kr`;
+      revenueStatus.className = "revenue-status saved";
+    }
+  } catch (e) { /* ignore */ }
+}
+
+if (revenueBtn) {
+  revenueBtn.addEventListener("click", async () => {
+    const amount = parseFloat(revenueInput.value);
+    if (isNaN(amount) || amount < 0) return;
+    try {
+      const res = await fetch("/api/kiosk-revenue", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ amount }),
+      });
+      const data = await res.json();
+      if (data.status === "ok") {
+        revenueStatus.textContent = `Sparat: ${amount} kr`;
+        revenueStatus.className = "revenue-status saved";
+      } else {
+        revenueStatus.textContent = "Ingen aktiv session";
+        revenueStatus.className = "revenue-status";
+      }
+    } catch (e) {
+      revenueStatus.textContent = "Kunde inte spara";
+      revenueStatus.className = "revenue-status";
+    }
+  });
+}
+
+if (revenueInput) {
+  revenueInput.addEventListener("keydown", (e) => {
+    if (e.key === "Enter") revenueBtn?.click();
+  });
+}
+
+loadRevenue();
+
 // === Calendar ===
 const calGrid = document.getElementById("cal-grid");
 if (calGrid) {
@@ -388,6 +439,13 @@ if (calGrid) {
           el("span", { className: "meta-value", textContent: durationText }),
         ]),
       ]);
+
+      if (data.kiosk_revenue > 0) {
+        meta.appendChild(el("div", { className: "meta-item" }, [
+          el("span", { className: "meta-label", textContent: "Kassa" }),
+          el("span", { className: "meta-value", textContent: `${data.kiosk_revenue} kr` }),
+        ]));
+      }
 
       const listItems = (data.checkins || []).map(c => {
         const t = c.checkin_time ? new Date(c.checkin_time).toLocaleTimeString("sv-SE", { hour: "2-digit", minute: "2-digit" }) : "";
