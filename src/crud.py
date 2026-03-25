@@ -42,9 +42,19 @@ def start_session(location: str | None, notes: str | None) -> dict:
             return _row_dict(cur, cur.fetchone())
 
 
-def end_session(session_id: int) -> None:
+def end_session(session_id: int) -> int:
+    """End session and auto-checkout remaining participants. Returns auto-checkout count."""
     with get_connection() as conn:
         with conn.cursor() as cur:
+            cur.execute(
+                """
+                UPDATE meetup_checkins
+                SET checkout_time = NOW()
+                WHERE session_id = %s AND checkout_time IS NULL
+                """,
+                (session_id,),
+            )
+            auto_checkouts = cur.rowcount
             cur.execute(
                 """
                 UPDATE meetup_sessions
@@ -53,6 +63,7 @@ def end_session(session_id: int) -> None:
                 """,
                 (session_id,),
             )
+            return auto_checkouts
 
 
 def update_session_revenue(session_id: int, amount: float) -> None:
@@ -319,6 +330,16 @@ def checkout_player(session_id: int, player_uuid: str) -> dict | None:
             )
             row = cur.fetchone()
             return _row_dict(cur, row) if row else None
+
+
+def undo_checkout(checkin_id: int) -> bool:
+    with get_connection() as conn:
+        with conn.cursor() as cur:
+            cur.execute(
+                "UPDATE meetup_checkins SET checkout_time = NULL WHERE id = %s AND checkout_time IS NOT NULL",
+                (checkin_id,),
+            )
+            return cur.rowcount > 0
 
 
 def create_headcount(session_id: int, count: int, created_by: str | None = None) -> dict:

@@ -32,6 +32,48 @@ let idleTimer = null;
 
 const IDLE_DELAY_MS = 10000;
 
+/* --- Audio feedback via Web Audio API --- */
+const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+
+function playTone(freq, duration, type = "sine") {
+  const osc = audioCtx.createOscillator();
+  const gain = audioCtx.createGain();
+  osc.type = type;
+  osc.frequency.value = freq;
+  gain.gain.setValueAtTime(0.18, audioCtx.currentTime);
+  gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + duration);
+  osc.connect(gain);
+  gain.connect(audioCtx.destination);
+  osc.start();
+  osc.stop(audioCtx.currentTime + duration);
+}
+
+function playCheckinSound() {
+  playTone(660, 0.12);
+  setTimeout(() => playTone(880, 0.18), 100);
+}
+
+function playCheckoutSound() {
+  playTone(440, 0.12);
+  setTimeout(() => playTone(330, 0.18), 100);
+}
+
+function playErrorSound() {
+  playTone(220, 0.25, "square");
+}
+
+/* --- QR reader visual feedback --- */
+const qrReader = document.getElementById("qr-reader");
+
+function flashQrBorder(color) {
+  if (!qrReader) return;
+  qrReader.classList.remove("flash-ok", "flash-out", "flash-warn");
+  void qrReader.offsetWidth; // force reflow for re-trigger
+  const cls = color === "ok" ? "flash-ok" : color === "warn" ? "flash-warn" : "flash-out";
+  qrReader.classList.add(cls);
+  setTimeout(() => qrReader.classList.remove(cls), 800);
+}
+
 function setStatus(text, level) {
   statusEl.textContent = text;
   statusEl.className = "status";
@@ -143,20 +185,29 @@ async function sendCheckin(qrData) {
     const streak = streakText(data.streak);
     scanResultEl.textContent = `V\u00e4lkommen ${data.member_name}! Du \u00e4r #${data.checkin_number} idag${streak}`;
     updateCounters(data.checkin_number, data.present);
+    playCheckinSound();
+    flashQrBorder("ok");
   } else if (data.status === "checkout") {
     setStatus("UTCHECKAD", "info");
-    scanResultEl.textContent = `Hej d\u00e5 ${data.member_name}! Vi ses n\u00e4sta g\u00e5ng`;
+    scanResultEl.textContent = `Hej d\u00e5 ${data.member_name}! Vi ses n\u00e4sta g\u00e5ng \u{1F44B}`;
     updateCounters(undefined, data.present);
+    playCheckoutSound();
+    flashQrBorder("out");
   } else if (data.status === "already_left") {
     setStatus("REDAN UTCHECKAD", "warn");
     scanResultEl.textContent = `${data.member_name} har redan checkat ut`;
+    playErrorSound();
+    flashQrBorder("warn");
   } else if (data.status === "unknown") {
     setStatus("OK\u00c4ND", "warn");
     scanResultEl.textContent = "QR-koden k\u00e4nns inte igen.";
     showLinkForm(data.card_id);
+    playErrorSound();
+    flashQrBorder("warn");
   } else if (data.status === "no_session") {
     setStatus("INGEN SESSION", "warn");
     scanResultEl.textContent = "Ingen aktiv session.";
+    playErrorSound();
   } else {
     setStatus("FEL", "warn");
     scanResultEl.textContent = "Scanningsfel.";

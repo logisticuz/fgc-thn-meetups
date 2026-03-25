@@ -7,6 +7,10 @@ logger = logging.getLogger(__name__)
 _pool = None
 
 
+def _configure_connection(conn):
+    conn.execute("SET timezone = 'Europe/Stockholm'")
+
+
 def _get_pool():
     global _pool
     if _pool is None:
@@ -18,6 +22,7 @@ def _get_pool():
             max_size=5,
             open=True,
             kwargs={"autocommit": True},
+            configure=_configure_connection,
         )
         logger.info("Postgres connection pool initialized (meetups)")
     return _pool

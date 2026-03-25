@@ -117,9 +117,9 @@ async def api_end_session(request: Request):
     session = crud.get_open_session()
     if not session:
         return {"status": "none"}
-    crud.end_session(session["id"])
-    crud.log_action("session_ended", f"Session {session['id']} ended", "admin")
-    return {"status": "ended"}
+    auto_checkouts = crud.end_session(session["id"])
+    crud.log_action("session_ended", f"Session {session['id']} ended, {auto_checkouts} auto-checked out", "admin")
+    return {"status": "ended", "auto_checkouts": auto_checkouts}
 
 
 # --- Headcount ---
@@ -177,6 +177,16 @@ async def api_update_session_revenue(request: Request, session_id: int, payload:
 
 
 # --- Checkin management ---
+
+@router.post("/api/checkin/{checkin_id}/undo-checkout")
+async def api_undo_checkout(request: Request, checkin_id: int):
+    if not is_admin(request):
+        return JSONResponse({"status": "unauthorized"}, status_code=401)
+    ok = crud.undo_checkout(checkin_id)
+    if not ok:
+        return JSONResponse({"status": "not_found"}, status_code=404)
+    return {"status": "ok"}
+
 
 @router.delete("/api/checkin/{checkin_id}")
 async def api_delete_checkin(request: Request, checkin_id: int):

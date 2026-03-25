@@ -34,6 +34,11 @@ async function deleteCheckin(checkinId) {
   loadAttendance();
 }
 
+async function undoCheckout(checkinId) {
+  await fetch(`/api/checkin/${checkinId}/undo-checkout`, { method: "POST" });
+  loadAttendance();
+}
+
 function clearChildren(el) {
   while (el.firstChild) el.removeChild(el.firstChild);
 }
@@ -107,6 +112,9 @@ async function loadAttendance() {
           textContent: "Bli medlem",
           onclick: () => showAdminRegisterForm(c.checkin_id, c.name),
         }));
+      }
+      if (c.checked_out) {
+        actionChildren.push(el("button", { className: "btn-undo", title: "Ångra utcheckning", textContent: "\u21a9", onclick: () => undoCheckout(c.checkin_id) }));
       }
       actionChildren.push(el("button", { className: "btn-delete", title: "Ta bort", textContent: "\u00d7", onclick: () => deleteCheckin(c.checkin_id) }));
 
@@ -410,27 +418,56 @@ if (calGrid) {
         dayEl.addEventListener("click", () => {
           document.querySelectorAll(".calendar-day.selected").forEach(x => x.classList.remove("selected"));
           dayEl.classList.add("selected");
-          showDayDetail(daySessions[0].session_id, dateStr);
+          showDayDetail(daySessions, dateStr);
         });
       }
       calGrid.appendChild(dayEl);
     }
   }
 
-  async function showDayDetail(sessionId, dateStr) {
+  async function showDayDetail(daySessions, dateStr) {
     calDetail.style.display = "none";
+    clearChildren(calDetail);
+
+    const d = new Date(dateStr + "T12:00:00");
+    const dateTitle = d.toLocaleDateString("sv-SE", { weekday: "long", day: "numeric", month: "long", year: "numeric" });
+
+    const header = el("div", { className: "calendar-detail-header" }, [
+      el("h3", { textContent: dateTitle.charAt(0).toUpperCase() + dateTitle.slice(1) }),
+      el("button", { className: "calendar-detail-close", textContent: "\u00d7", onclick: () => { calDetail.style.display = "none"; document.querySelectorAll(".calendar-day.selected").forEach(x => x.classList.remove("selected")); } }),
+    ]);
+    calDetail.appendChild(header);
+
+    if (daySessions.length > 1) {
+      const tabs = el("div", { className: "session-tabs" });
+      daySessions.forEach((s, i) => {
+        const t = s.start_time ? new Date(s.start_time).toLocaleTimeString("sv-SE", { hour: "2-digit", minute: "2-digit" }) : `#${i + 1}`;
+        const tab = el("button", {
+          className: `session-tab${i === 0 ? " active" : ""}`,
+          textContent: `Session ${t}`,
+          onclick: () => {
+            tabs.querySelectorAll(".session-tab").forEach(b => b.classList.remove("active"));
+            tab.classList.add("active");
+            renderSessionDetail(s.session_id, sessionContent);
+          },
+        });
+        tabs.appendChild(tab);
+      });
+      calDetail.appendChild(tabs);
+    }
+
+    const sessionContent = el("div", { className: "session-content" });
+    calDetail.appendChild(sessionContent);
+    calDetail.style.display = "block";
+
+    renderSessionDetail(daySessions[0].session_id, sessionContent);
+  }
+
+  async function renderSessionDetail(sessionId, container) {
+    clearChildren(container);
     try {
       const res = await fetch(`/api/calendar/day?session_id=${sessionId}`);
       const data = await res.json();
-      clearChildren(calDetail);
-
-      const d = new Date(dateStr + "T12:00:00");
-      const dateTitle = d.toLocaleDateString("sv-SE", { weekday: "long", day: "numeric", month: "long", year: "numeric" });
-
-      const header = el("div", { className: "calendar-detail-header" }, [
-        el("h3", { textContent: dateTitle.charAt(0).toUpperCase() + dateTitle.slice(1) }),
-        el("button", { className: "calendar-detail-close", textContent: "\u00d7", onclick: () => { calDetail.style.display = "none"; document.querySelectorAll(".calendar-day.selected").forEach(x => x.classList.remove("selected")); } }),
-      ]);
 
       const startTime = data.start_time ? new Date(data.start_time).toLocaleTimeString("sv-SE", { hour: "2-digit", minute: "2-digit" }) : "-";
       const endTime = data.end_time ? new Date(data.end_time).toLocaleTimeString("sv-SE", { hour: "2-digit", minute: "2-digit" }) : "pågår";
@@ -502,14 +539,12 @@ if (calGrid) {
       });
       const list = el("ul", { className: "calendar-checkin-list" }, listItems);
 
-      calDetail.appendChild(header);
-      calDetail.appendChild(meta);
-      calDetail.appendChild(revenueSection);
+      container.appendChild(meta);
+      container.appendChild(revenueSection);
       if (listItems.length > 0) {
-        calDetail.appendChild(el("div", { className: "meta-label", style: "margin-bottom:8px", textContent: "Deltagarlista" }));
-        calDetail.appendChild(list);
+        container.appendChild(el("div", { className: "meta-label", style: "margin-bottom:8px", textContent: "Deltagarlista" }));
+        container.appendChild(list);
       }
-      calDetail.style.display = "block";
     } catch (e) { /* ignore */ }
   }
 
