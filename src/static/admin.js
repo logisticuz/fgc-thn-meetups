@@ -299,7 +299,7 @@ async function loadRevenue() {
     const data = await res.json();
     if (data.amount > 0) {
       revenueInput.value = data.amount;
-      revenueStatus.textContent = `Sparat: ${data.amount} kr`;
+      revenueStatus.textContent = `Sparat: ${data.amount} kr — ändra beloppet och spara igen vid behov`;
       revenueStatus.className = "revenue-status saved";
     }
   } catch (e) { /* ignore */ }
@@ -351,10 +351,13 @@ if (calGrid) {
   let calYear = new Date().getFullYear();
   let calMonth = new Date().getMonth() + 1;
 
+  const calSummary = document.getElementById("cal-summary");
+
   async function renderCalendar(year, month) {
     calTitle.textContent = `${MONTHS_SV[month - 1]} ${year}`;
     calDetail.style.display = "none";
     clearChildren(calGrid);
+    if (calSummary) clearChildren(calSummary);
 
     for (const d of DAYS_SV) {
       calGrid.appendChild(el("div", { className: "calendar-weekday", textContent: d }));
@@ -366,6 +369,23 @@ if (calGrid) {
       const data = await res.json();
       sessions = data.sessions || {};
     } catch (e) { /* ignore */ }
+
+    // Calculate monthly summary
+    let monthRevenue = 0, monthSessions = 0, monthCheckins = 0;
+    for (const dateSessions of Object.values(sessions)) {
+      for (const s of dateSessions) {
+        monthSessions++;
+        monthRevenue += s.kiosk_revenue || 0;
+        monthCheckins += s.total_checkins || 0;
+      }
+    }
+    if (calSummary && monthSessions > 0) {
+      calSummary.appendChild(el("div", { className: "cal-summary-row" }, [
+        el("span", { className: "cal-summary-item", textContent: `${monthSessions} träffar` }),
+        el("span", { className: "cal-summary-item", textContent: `${monthCheckins} besök` }),
+        el("span", { className: "cal-summary-item cal-summary-revenue", textContent: `${monthRevenue} kr` }),
+      ]));
+    }
 
     const firstDow = (new Date(year, month - 1, 1).getDay() + 6) % 7;
     const daysInMonth = new Date(year, month, 0).getDate();
@@ -428,7 +448,7 @@ if (calGrid) {
         ]),
         el("div", { className: "meta-item" }, [
           el("span", { className: "meta-label", textContent: "Peak headcount" }),
-          el("span", { className: "meta-value", textContent: String(data.peak_headcount) }),
+          el("span", { className: "meta-value", textContent: data.peak_time ? `${data.peak_headcount} (${new Date(data.peak_time).toLocaleTimeString("sv-SE", { hour: "2-digit", minute: "2-digit" })})` : String(data.peak_headcount) }),
         ]),
         el("div", { className: "meta-item" }, [
           el("span", { className: "meta-label", textContent: "Tid" }),
@@ -440,12 +460,38 @@ if (calGrid) {
         ]),
       ]);
 
-      if (data.kiosk_revenue > 0) {
-        meta.appendChild(el("div", { className: "meta-item" }, [
-          el("span", { className: "meta-label", textContent: "Kassa" }),
-          el("span", { className: "meta-value", textContent: `${data.kiosk_revenue} kr` }),
-        ]));
-      }
+      const amt = data.kiosk_revenue || 0;
+      const revenueDisplay = el("div", { className: "revenue-display" }, [
+        el("span", { className: "meta-value", textContent: `${amt} kr` }),
+        el("button", { className: "btn btn-sm", textContent: "Ändra", onclick: () => {
+          revenueDisplay.style.display = "none";
+          revenueControls.style.display = "flex";
+        }}),
+      ]);
+      const revenueControls = el("div", { className: "revenue-edit-controls", style: "display:none" }, [
+        el("input", { type: "number", className: "revenue-edit-input", value: amt || "", placeholder: "0", min: "0", step: "1" }),
+        el("span", { textContent: "kr", style: "color:var(--muted);font-size:14px" }),
+        el("button", { className: "btn btn-sm primary", textContent: "Spara", onclick: async () => {
+          const input = revenueControls.querySelector("input");
+          const val = parseFloat(input.value) || 0;
+          const r = await fetch(`/api/kiosk-revenue/${sessionId}`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ amount: val }) });
+          if (r.ok) {
+            revenueControls.style.display = "none";
+            revenueDisplay.querySelector(".meta-value").textContent = `${val} kr`;
+            revenueDisplay.style.display = "flex";
+            renderCalendar(calYear, calMonth);
+          }
+        }}),
+        el("button", { className: "btn btn-sm", textContent: "Avbryt", onclick: () => {
+          revenueControls.style.display = "none";
+          revenueDisplay.style.display = "flex";
+        }}),
+      ]);
+      const revenueSection = el("div", { className: "revenue-edit-section" }, [
+        el("div", { className: "meta-label", textContent: "Kassa" }),
+        revenueDisplay,
+        revenueControls,
+      ]);
 
       const listItems = (data.checkins || []).map(c => {
         const t = c.checkin_time ? new Date(c.checkin_time).toLocaleTimeString("sv-SE", { hour: "2-digit", minute: "2-digit" }) : "";
@@ -458,6 +504,7 @@ if (calGrid) {
 
       calDetail.appendChild(header);
       calDetail.appendChild(meta);
+      calDetail.appendChild(revenueSection);
       if (listItems.length > 0) {
         calDetail.appendChild(el("div", { className: "meta-label", style: "margin-bottom:8px", textContent: "Deltagarlista" }));
         calDetail.appendChild(list);
@@ -508,7 +555,10 @@ async function loadDevSessions() {
           textContent: "Radera",
           onclick: async () => {
             if (!confirm(`Radera session ${date} (${s.total_checkins} checkins)? Detta kan inte ångras.`)) return;
-            await fetch(`/api/dev/session/${s.id}`, { method: "DELETE" });
+            try {
+              const r = await fetch(`/api/dev/session/${s.id}`, { method: "DELETE" });
+              if (!r.ok) { alert(`Fel: ${r.status}`); return; }
+            } catch (err) { alert(`Nätverksfel: ${err.message}`); return; }
             loadDevSessions();
           },
         }),

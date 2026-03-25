@@ -12,8 +12,11 @@ Pulla senaste koden och bygga om containern. Nya features sedan forsta deploy:
 - **Forinst alld plats** — kiosken har Studiefr amjandet som default
 
 ### Batch 2 (denna deploy)
-- **Kalender** — manadsvy i Oversikt-fliken, klickbara dagar med sessionsdetaljer
-- **Kassa** — registrera kioskintakter per session (ny kolumn i databasen)
+- **Kalender** — manadsvy i Oversikt-fliken med side-by-side layout (kalender + detalj)
+- **Kassa** — registrera kioskintakter per session (ny kolumn), redigerbar i kalender-dagvy
+- **Kassasummor** — manadssummor (traffar, besok, intakter) under kalendern
+- **Peak headcount med tid** — visar nar peak registrerades
+- **Kassa-API per session** — `POST /api/kiosk-revenue/{session_id}` for att andra historiska belopp
 - **Dev tab** — dold flik for dev-PIN, session-radering med cascade-delete
 - **Favicon** — `/static/assets/favicon.png`
 - **Footer** — "Powered by IMLO" i botten, `background-attachment: fixed` for att inte bryta gradienten

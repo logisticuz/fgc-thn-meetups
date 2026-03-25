@@ -165,6 +165,17 @@ async def api_get_kiosk_revenue(request: Request):
     return {"amount": amount}
 
 
+@router.post("/api/kiosk-revenue/{session_id}")
+async def api_update_session_revenue(request: Request, session_id: int, payload: RevenueRequest):
+    if not is_admin(request):
+        return JSONResponse({"status": "unauthorized"}, status_code=401)
+    session = crud.get_session_by_id(session_id)
+    if not session:
+        return JSONResponse({"status": "not_found"}, status_code=404)
+    crud.update_session_revenue(session_id, payload.amount)
+    return {"status": "ok", "amount": payload.amount}
+
+
 # --- Checkin management ---
 
 @router.delete("/api/checkin/{checkin_id}")
@@ -298,6 +309,11 @@ async def api_calendar_day(request: Request, session_id: int):
     checkins = crud.get_session_checkins(session_id)
     headcounts = crud.get_session_headcounts(session_id)
     peak = max((h["count"] for h in headcounts), default=0)
+    peak_time = None
+    for h in headcounts:
+        if h["count"] == peak and peak > 0:
+            peak_time = h["recorded_at"].isoformat() if h.get("recorded_at") else None
+            break
     duration_minutes = None
     if session["start_time"] and session.get("end_time"):
         duration_minutes = round((session["end_time"] - session["start_time"]).total_seconds() / 60)
@@ -309,6 +325,7 @@ async def api_calendar_day(request: Request, session_id: int):
         "location": session.get("location", ""),
         "total_checkins": len(checkins),
         "peak_headcount": peak,
+        "peak_time": peak_time,
         "duration_minutes": duration_minutes,
         "kiosk_revenue": float(session.get("kiosk_revenue", 0)),
         "checkins": checkins,
