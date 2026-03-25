@@ -56,8 +56,8 @@
       <tr class="{{ 'checkout-out' if c.checked_out else '' }}">
         <td><span class="attendance-number">{{ c.number }}</span></td>
         <td>{{ c.name }}</td>
-        <td class="attendance-time">{{ c.checkin_time[:16] if c.checkin_time else '—' }}</td>
-        <td class="attendance-time">{{ c.checkout_time[:16] if c.checkout_time else '' }}</td>
+        <td class="attendance-time">{{ c.checkin_time.strftime('%Y-%m-%d %H:%M') if c.checkin_time else '—' }}</td>
+        <td class="attendance-time">{{ c.checkout_time.strftime('%Y-%m-%d %H:%M') if c.checkout_time else '' }}</td>
         <td>{{ c.method }}</td>
       </tr>
       {% endfor %}
@@ -79,7 +79,7 @@
     <tbody>
       {% for h in headcounts %}
       <tr>
-        <td class="attendance-time">{{ h.recorded_at[:16] if h.recorded_at else '' }}</td>
+        <td class="attendance-time">{{ h.recorded_at.strftime('%Y-%m-%d %H:%M') if h.recorded_at else '' }}</td>
         <td><span class="badge">{{ h.count }}</span></td>
       </tr>
       {% endfor %}

@@ -298,8 +298,8 @@ def get_session_checkins(session_id: int) -> list[dict]:
             {
                 "number": idx,
                 "name": player_name or guest_name or "Guest",
-                "checkin_time": checkin_time.isoformat() if checkin_time else "",
-                "checkout_time": checkout_time.isoformat() if checkout_time else "",
+                "checkin_time": checkin_time,
+                "checkout_time": checkout_time,
                 "checked_out": checkout_time is not None,
                 "method": method,
                 "checkin_id": checkin_id,
@@ -373,7 +373,7 @@ def get_session_headcounts(session_id: int) -> list[dict]:
     return [
         {
             "count": row[0],
-            "recorded_at": row[1].isoformat() if row[1] else "",
+            "recorded_at": row[1],
         }
         for row in rows
     ]
