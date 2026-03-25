@@ -322,7 +322,7 @@ async def api_calendar_day(request: Request, session_id: int):
     peak_time = None
     for h in headcounts:
         if h["count"] == peak and peak > 0:
-            peak_time = h["recorded_at"].isoformat() if h.get("recorded_at") else None
+            peak_time = h["recorded_at"] if h.get("recorded_at") else None
             break
     duration_minutes = None
     if session["start_time"] and session.get("end_time"):
