@@ -13,6 +13,8 @@ Pulla senaste koden och bygga om containern. Andringar baserade pa feedback fran
 - **Kalender multi-session** — om det finns flera sessioner pa en dag visas tabs for att valja mellan dem
 - **Timezone-fix** — alla tider visas nu i svensk tid (Europe/Stockholm), fixar att session-starttid visades en timme fel
 - **"Kiosk" → "Checkin"** — navlanken heter nu "Checkin" istallet for "Kiosk" for att undvika forvirring med snack-kiosken
+- **Bugfix: kalender dag-detalj** — fixat krasch vid klick pa dagar med headcount-data (dubbel isoformat)
+- **Refaktor: crud datetime** — crud returnerar nu ratt datetime-objekt istallet for strangar, forenklad for framtida insights/analytics
 
 ## Steg
 
