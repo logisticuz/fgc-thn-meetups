@@ -338,6 +338,30 @@ def get_session_headcounts(session_id: int) -> list[dict]:
     ]
 
 
+def get_sessions_for_month(year: int, month: int) -> list[dict]:
+    with get_connection() as conn:
+        with conn.cursor() as cur:
+            cur.execute(
+                """
+                SELECT s.id, s.start_time, s.end_time, s.status,
+                       COALESCE(s.location, '') AS location,
+                       COUNT(c.id) AS total_checkins,
+                       COALESCE(MAX(h.count), 0) AS peak_headcount
+                FROM meetup_sessions s
+                LEFT JOIN meetup_checkins c ON c.session_id = s.id
+                LEFT JOIN meetup_headcounts h ON h.session_id = s.id
+                WHERE EXTRACT(YEAR FROM s.start_time) = %s
+                  AND EXTRACT(MONTH FROM s.start_time) = %s
+                GROUP BY s.id
+                ORDER BY s.start_time ASC
+                """,
+                (year, month),
+            )
+            rows = cur.fetchall()
+            cols = [desc[0] for desc in cur.description]
+            return [{cols[i]: r[i] for i in range(len(cols))} for r in rows]
+
+
 def get_all_sessions() -> list[dict]:
     with get_connection() as conn:
         with conn.cursor() as cur:

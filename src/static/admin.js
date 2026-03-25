@@ -287,6 +287,142 @@ document.querySelectorAll(".admin-tab").forEach((tab) => {
   });
 });
 
+// === Calendar ===
+const calGrid = document.getElementById("cal-grid");
+if (calGrid) {
+  const calTitle = document.getElementById("cal-title");
+  const calDetail = document.getElementById("cal-detail");
+  const calPrev = document.getElementById("cal-prev");
+  const calNext = document.getElementById("cal-next");
+  const MONTHS_SV = ["Januari","Februari","Mars","April","Maj","Juni","Juli","Augusti","September","Oktober","November","December"];
+  const DAYS_SV = ["Mån","Tis","Ons","Tor","Fre","Lör","Sön"];
+
+  let calYear = new Date().getFullYear();
+  let calMonth = new Date().getMonth() + 1;
+
+  async function renderCalendar(year, month) {
+    calTitle.textContent = `${MONTHS_SV[month - 1]} ${year}`;
+    calDetail.style.display = "none";
+    clearChildren(calGrid);
+
+    for (const d of DAYS_SV) {
+      calGrid.appendChild(el("div", { className: "calendar-weekday", textContent: d }));
+    }
+
+    let sessions = {};
+    try {
+      const res = await fetch(`/api/calendar?year=${year}&month=${month}`);
+      const data = await res.json();
+      sessions = data.sessions || {};
+    } catch (e) { /* ignore */ }
+
+    const firstDow = (new Date(year, month - 1, 1).getDay() + 6) % 7;
+    const daysInMonth = new Date(year, month, 0).getDate();
+    const today = new Date();
+    const todayStr = `${today.getFullYear()}-${String(today.getMonth()+1).padStart(2,"0")}-${String(today.getDate()).padStart(2,"0")}`;
+
+    for (let i = 0; i < firstDow; i++) {
+      calGrid.appendChild(el("div", { className: "calendar-day empty" }));
+    }
+
+    for (let d = 1; d <= daysInMonth; d++) {
+      const dateStr = `${year}-${String(month).padStart(2,"0")}-${String(d).padStart(2,"0")}`;
+      const daySessions = sessions[dateStr];
+      const has = daySessions && daySessions.length > 0;
+      let cls = "calendar-day";
+      if (has) cls += " has-session";
+      if (dateStr === todayStr) cls += " today";
+
+      const dayEl = el("div", { className: cls, textContent: String(d) });
+      if (has) {
+        dayEl.appendChild(el("span", { className: "session-dot" }));
+        dayEl.addEventListener("click", () => {
+          document.querySelectorAll(".calendar-day.selected").forEach(x => x.classList.remove("selected"));
+          dayEl.classList.add("selected");
+          showDayDetail(daySessions[0].session_id, dateStr);
+        });
+      }
+      calGrid.appendChild(dayEl);
+    }
+  }
+
+  async function showDayDetail(sessionId, dateStr) {
+    calDetail.style.display = "none";
+    try {
+      const res = await fetch(`/api/calendar/day?session_id=${sessionId}`);
+      const data = await res.json();
+      clearChildren(calDetail);
+
+      const d = new Date(dateStr + "T12:00:00");
+      const dateTitle = d.toLocaleDateString("sv-SE", { weekday: "long", day: "numeric", month: "long", year: "numeric" });
+
+      const header = el("div", { className: "calendar-detail-header" }, [
+        el("h3", { textContent: dateTitle.charAt(0).toUpperCase() + dateTitle.slice(1) }),
+        el("button", { className: "calendar-detail-close", textContent: "\u00d7", onclick: () => { calDetail.style.display = "none"; document.querySelectorAll(".calendar-day.selected").forEach(x => x.classList.remove("selected")); } }),
+      ]);
+
+      const startTime = data.start_time ? new Date(data.start_time).toLocaleTimeString("sv-SE", { hour: "2-digit", minute: "2-digit" }) : "-";
+      const endTime = data.end_time ? new Date(data.end_time).toLocaleTimeString("sv-SE", { hour: "2-digit", minute: "2-digit" }) : "pågår";
+      let durationText = "-";
+      if (data.duration_minutes) {
+        const h = Math.floor(data.duration_minutes / 60);
+        const m = data.duration_minutes % 60;
+        durationText = h > 0 ? `${h}h ${m}m` : `${m}m`;
+      }
+
+      const meta = el("div", { className: "calendar-detail-meta" }, [
+        el("div", { className: "meta-item" }, [
+          el("span", { className: "meta-label", textContent: "Deltagare" }),
+          el("span", { className: "meta-value", textContent: String(data.total_checkins) }),
+        ]),
+        el("div", { className: "meta-item" }, [
+          el("span", { className: "meta-label", textContent: "Peak headcount" }),
+          el("span", { className: "meta-value", textContent: String(data.peak_headcount) }),
+        ]),
+        el("div", { className: "meta-item" }, [
+          el("span", { className: "meta-label", textContent: "Tid" }),
+          el("span", { className: "meta-value", textContent: `${startTime} – ${endTime}` }),
+        ]),
+        el("div", { className: "meta-item" }, [
+          el("span", { className: "meta-label", textContent: "Längd" }),
+          el("span", { className: "meta-value", textContent: durationText }),
+        ]),
+      ]);
+
+      const listItems = (data.checkins || []).map(c => {
+        const t = c.checkin_time ? new Date(c.checkin_time).toLocaleTimeString("sv-SE", { hour: "2-digit", minute: "2-digit" }) : "";
+        return el("li", {}, [
+          el("span", { className: "checkin-name", textContent: c.name }),
+          el("span", { className: "checkin-time", textContent: t }),
+        ]);
+      });
+      const list = el("ul", { className: "calendar-checkin-list" }, listItems);
+
+      calDetail.appendChild(header);
+      calDetail.appendChild(meta);
+      if (listItems.length > 0) {
+        calDetail.appendChild(el("div", { className: "meta-label", style: "margin-bottom:8px", textContent: "Deltagarlista" }));
+        calDetail.appendChild(list);
+      }
+      calDetail.style.display = "block";
+    } catch (e) { /* ignore */ }
+  }
+
+  calPrev.addEventListener("click", () => {
+    calMonth--;
+    if (calMonth < 1) { calMonth = 12; calYear--; }
+    renderCalendar(calYear, calMonth);
+  });
+
+  calNext.addEventListener("click", () => {
+    calMonth++;
+    if (calMonth > 12) { calMonth = 1; calYear++; }
+    renderCalendar(calYear, calMonth);
+  });
+
+  renderCalendar(calYear, calMonth);
+}
+
 loadAttendance();
 loadHeadcounts();
 setInterval(loadAttendance, 15000);

@@ -224,6 +224,63 @@ async def admin_manual(
     )
 
 
+# --- Calendar ---
+
+@router.get("/api/calendar")
+async def api_calendar(request: Request, year: int, month: int):
+    if not is_admin(request):
+        return JSONResponse({"status": "unauthorized"}, status_code=401)
+    sessions = crud.get_sessions_for_month(year, month)
+    by_date = {}
+    for s in sessions:
+        date_key = s["start_time"].strftime("%Y-%m-%d") if s["start_time"] else None
+        if not date_key:
+            continue
+        duration_minutes = None
+        if s["start_time"] and s["end_time"]:
+            duration_minutes = round((s["end_time"] - s["start_time"]).total_seconds() / 60)
+        if date_key not in by_date:
+            by_date[date_key] = []
+        by_date[date_key].append({
+            "session_id": s["id"],
+            "start_time": s["start_time"].isoformat(),
+            "end_time": s["end_time"].isoformat() if s["end_time"] else None,
+            "status": s["status"],
+            "total_checkins": s["total_checkins"],
+            "peak_headcount": s["peak_headcount"],
+            "duration_minutes": duration_minutes,
+            "location": s["location"],
+        })
+    return {"year": year, "month": month, "sessions": by_date}
+
+
+@router.get("/api/calendar/day")
+async def api_calendar_day(request: Request, session_id: int):
+    if not is_admin(request):
+        return JSONResponse({"status": "unauthorized"}, status_code=401)
+    session = crud.get_session_by_id(session_id)
+    if not session:
+        return JSONResponse({"status": "not_found"}, status_code=404)
+    checkins = crud.get_session_checkins(session_id)
+    headcounts = crud.get_session_headcounts(session_id)
+    peak = max((h["count"] for h in headcounts), default=0)
+    duration_minutes = None
+    if session["start_time"] and session.get("end_time"):
+        duration_minutes = round((session["end_time"] - session["start_time"]).total_seconds() / 60)
+    return {
+        "session_id": session_id,
+        "start_time": session["start_time"].isoformat() if session["start_time"] else None,
+        "end_time": session["end_time"].isoformat() if session.get("end_time") else None,
+        "status": session["status"],
+        "location": session.get("location", ""),
+        "total_checkins": len(checkins),
+        "peak_headcount": peak,
+        "duration_minutes": duration_minutes,
+        "checkins": checkins,
+        "headcounts": headcounts,
+    }
+
+
 # --- History ---
 
 @router.get("/admin/history", response_class=HTMLResponse)
