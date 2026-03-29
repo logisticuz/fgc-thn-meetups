@@ -188,6 +188,16 @@ async def api_undo_checkout(request: Request, checkin_id: int):
     return {"status": "ok"}
 
 
+@router.post("/api/checkin/{checkin_id}/checkout")
+async def api_checkout_checkin(request: Request, checkin_id: int):
+    if not is_admin(request):
+        return JSONResponse({"status": "unauthorized"}, status_code=401)
+    ok = crud.checkout_checkin(checkin_id)
+    if not ok:
+        return JSONResponse({"status": "not_found"}, status_code=404)
+    return {"status": "ok"}
+
+
 @router.delete("/api/checkin/{checkin_id}")
 async def api_delete_checkin(request: Request, checkin_id: int):
     if not is_admin(request):

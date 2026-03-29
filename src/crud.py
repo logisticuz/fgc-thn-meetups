@@ -332,6 +332,20 @@ def checkout_player(session_id: int, player_uuid: str) -> dict | None:
             return _row_dict(cur, row) if row else None
 
 
+def checkout_checkin(checkin_id: int) -> bool:
+    with get_connection() as conn:
+        with conn.cursor() as cur:
+            cur.execute(
+                """
+                UPDATE meetup_checkins
+                SET checkout_time = NOW()
+                WHERE id = %s AND checkout_time IS NULL
+                """,
+                (checkin_id,),
+            )
+            return cur.rowcount > 0
+
+
 def undo_checkout(checkin_id: int) -> bool:
     with get_connection() as conn:
         with conn.cursor() as cur:

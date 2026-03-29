@@ -128,6 +128,11 @@ def test_delete_checkin_requires_admin(unauthenticated_client):
     assert response.status_code == 401
 
 
+def test_checkout_checkin_requires_admin(unauthenticated_client):
+    response = unauthenticated_client.post("/api/checkin/1/checkout")
+    assert response.status_code == 401
+
+
 # --- Session lifecycle ---
 
 @patch.object(crud, "log_action")
@@ -270,6 +275,18 @@ def test_attendance_with_checkins(mock_session, mock_checkins, mock_present, cli
 
 
 # --- Delete checkin ---
+
+@patch.object(crud, "checkout_checkin", return_value=True)
+def test_checkout_checkin_success(mock_checkout, admin_client):
+    res = admin_client.post("/api/checkin/42/checkout")
+    assert res.json()["status"] == "ok"
+    mock_checkout.assert_called_once_with(42)
+
+
+@patch.object(crud, "checkout_checkin", return_value=False)
+def test_checkout_checkin_not_found(mock_checkout, admin_client):
+    res = admin_client.post("/api/checkin/999/checkout")
+    assert res.status_code == 404
 
 @patch.object(crud, "delete_checkin", return_value=True)
 def test_delete_checkin_success(mock_delete, admin_client):
