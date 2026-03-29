@@ -88,6 +88,7 @@ meetup_headcounts (id SERIAL PK, session_id FK, count, recorded_at, created_by)
 | GET | `/api/sessions/attendance` | - | Narvarolista |
 | POST | `/api/headcount` | PIN | Registrera headcount `{count}` |
 | GET | `/api/headcount` | - | Hamta headcounts |
+| POST | `/api/checkin/{id}/checkout` | PIN | Checka ut deltagare (gastar + medlemmar) |
 | POST | `/api/checkin/{id}/undo-checkout` | PIN | Angra utcheckning |
 | DELETE | `/api/checkin/{id}` | PIN | Ta bort checkin |
 | GET | `/admin/history` | PIN | Sessionshistorik |
