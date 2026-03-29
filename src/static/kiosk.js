@@ -371,6 +371,10 @@ const guestCheckinResult = document.getElementById("guest-checkin-result");
 function toggleGuestCheckin() {
   if (!guestCheckinForm) return;
   const visible = guestCheckinForm.style.display !== "none";
+  if (visible && guestNameInput && guestNameInput.value.trim()) {
+    submitGuestCheckin();
+    return;
+  }
   guestCheckinForm.style.display = visible ? "none" : "block";
   if (!visible && guestNameInput) { guestNameInput.value = ""; guestNameInput.focus(); }
   if (guestCheckinResult) { guestCheckinResult.textContent = ""; guestCheckinResult.className = "guest-checkin-result"; }
