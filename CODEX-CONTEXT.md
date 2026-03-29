@@ -1,6 +1,6 @@
 # Codex Context — fgc-thn-meetups
 
-Senast uppdaterad: 2026-03-21
+Senast uppdaterad: 2026-03-29
 
 ## Vad ar det har?
 
@@ -15,7 +15,7 @@ Tre system delar en Postgres-databas (`fgc_checkin`):
 |--------|------|------|--------|
 | Turneringar | `fgt-checkin-system` | 8001 | Produktion |
 | Medlemskort | `fgt-member-card` | 8003 | **Produktion** (deploy 2026-03-24) |
-| **Meetups** | `fgc-thn-meetups` | 8004 | **DEV, migrering klar** |
+| **Meetups** | `fgc-thn-meetups` | 8004 | **Produktion** (deploy 2026-03-24) |
 
 Alla tre ansluter till Docker-natverket `fgt-dev_fgt-net` for att na Postgres och n8n.
 
@@ -31,7 +31,7 @@ Alla tre ansluter till Docker-natverket `fgt-dev_fgt-net` for att na Postgres oc
 - [x] Routers (`kiosk.py`, `admin.py`, `reports.py`) — dict-baserad data, inga ORM-objekt
 - [x] Templates — "Medlem" → "Spelare", "Sverok QR" → "medlemskort"
 - [x] JS — `token_hash` → `card_id`, `pendingTokenHash` → `pendingCardId`
-- [x] Testsvit — 21 mock-baserade tester (mockar `crud`-funktioner, **inte** SQLite)
+- [x] Testsvit — 31 mock-baserade tester (mockar `crud`-funktioner, **inte** SQLite)
 - [x] Docker — `Dockerfile` + `docker-compose.dev.yml` + `.dockerignore`
 - [x] Repo pa GitHub: `logisticuz/fgc-thn-meetups` (public)
 - [x] Import-sidan borttagen fran admin-menyn (hanteras av turneringssystemet)
@@ -59,22 +59,26 @@ meetup_headcounts (id SERIAL PK, session_id FK, count, recorded_at, created_by)
 
 - **Ingen ORM.** Raw SQL med `psycopg3`. Anslutningar fran `db.get_connection()`.
 - **Alla crud-funktioner** hanterar sin egen connection: `with get_connection() as conn:`
+- **Crud returnerar ra datetime.** Ingen `.isoformat()` i crud — routrarna serialiserar (FastAPI auto-serialiserar, Jinja usar `.strftime()`).
 - **Dicts overallt.** Inga ORM-objekt. `_row_dict(cursor, row)` konverterar.
 - **Autocommit.** Poolen skapas med `kwargs={"autocommit": True}`.
+- **Timezone.** Poolen konfigurerar varje connection med `SET timezone = 'Europe/Stockholm'`.
 - **Templates** anvander Jinja2 dot-notation pa dicts (`session.start_time`).
+- **Auto-checkout.** `end_session()` checkar ut kvarvarande deltagare fore stangning.
+- **Ljud + visuell feedback.** Kiosken anvander Web Audio API for checkin/checkout/fel-toner och CSS-animationer pa QR-ramen.
 
 ## Testmonster
 
 - Tester i `tests/test_api_flows.py` — **mockar crud-funktioner**, ingen databas
 - `@patch.object(crud, "get_open_session", return_value=...)` osv
 - **Kor INTE** mot SQLite eller Postgres — rent unit-test-lager
-- `pytest` — 21 tester, alla grona
+- `pytest` — 31 tester, alla grona
 
 ## API-endpoints
 
 | Metod | Path | Auth | Beskrivning |
 |-------|------|------|-------------|
-| GET | `/kiosk` | - | Kiosk-vy (QR-skanning) |
+| GET | `/kiosk` | - | Checkin-vy (QR-skanning) |
 | GET | `/admin` | PIN | Admin-dashboard |
 | POST | `/api/checkin` | - | QR checkin `{qr_data}` |
 | POST | `/api/link-and-checkin` | - | Koppla kort + checkin `{card_id, player_name}` |
@@ -84,6 +88,7 @@ meetup_headcounts (id SERIAL PK, session_id FK, count, recorded_at, created_by)
 | GET | `/api/sessions/attendance` | - | Narvarolista |
 | POST | `/api/headcount` | PIN | Registrera headcount `{count}` |
 | GET | `/api/headcount` | - | Hamta headcounts |
+| POST | `/api/checkin/{id}/undo-checkout` | PIN | Angra utcheckning |
 | DELETE | `/api/checkin/{id}` | PIN | Ta bort checkin |
 | GET | `/admin/history` | PIN | Sessionshistorik |
 | GET | `/admin/members` | PIN | Spelarlista |
@@ -91,12 +96,18 @@ meetup_headcounts (id SERIAL PK, session_id FK, count, recorded_at, created_by)
 | GET | `/admin/export` | PIN | CSV-export |
 | GET | `/admin/audit` | PIN | Audit-logg |
 
+## Dokumentation
+
+- `docs/ARCHITECTURE.md` — Systemarkitektur, datafloden, deploy
+- `docs/API-REFERENCE.md` — Komplett API-referens med request/response-exempel
+- `docs/DATA-MODEL.md` — Databasschema, relationer, affarsregler, CRUD-funktioner
+
 ## Vad som ATERSTAR (se ROADMAP.md for detaljer)
 
-1. E2E-test mot riktig Postgres (inte bara mock-tester)
-2. Gast → medlem registreringsformular
-3. DNS + SSL + prod-deploy
-4. Insights-integration med turneringssystemet
+1. Samla mer live-feedback (sondagstraffen 2026-03-29)
+2. Insights/analytics fran meetup-data
+3. Insights-integration med turneringssystemet
+4. Spelarstatistik pa medlemskortet
 
 ## Viktiga regler
 

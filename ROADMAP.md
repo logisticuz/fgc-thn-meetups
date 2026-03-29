@@ -1,6 +1,6 @@
 # FGC THN — Unified System Roadmap
 
-Senast uppdaterad: 2026-03-24
+Senast uppdaterad: 2026-03-29
 
 ## Vision
 Tre system, en Postgres, en spelaridentitet. Checka in en gang → syns overallt.
@@ -45,6 +45,16 @@ Tre system, en Postgres, en spelaridentitet. Checka in en gang → syns overallt
 - [x] SSL: Let's Encrypt via certbot (giltigt till 2026-06-22)
 - [x] Nginx reverse proxy (dockeriserad, delar config med checkin-system)
 - [x] Sakerhets-hardening: auth gate (login-sida), PIN-lockout (5 forsok, 15 min)
+- [x] Forsta live-test genomfort (2026-03-25, 7 incheckade)
+- [x] Auto-checkout vid session-avslut
+- [x] Admin angra checkout (aterställ utcheckning utan att radera)
+- [x] Checkin/checkout-ljud (Web Audio API, olika toner for in/ut/fel)
+- [x] QR visuell feedback (kameraramen flashar gront/cyan/rott)
+- [x] Kalender multi-session (tabs vid flera sessioner per dag)
+- [x] Timezone-fix (Europe/Stockholm pa connection-niva)
+- [x] "Kiosk" → "Checkin" namnbyte i nav
+- [x] Bugfix: kalender dag-detalj krasch (dubbel isoformat)
+- [x] Refaktor: crud returnerar ra datetime istallet for strangar
 - [ ] Sakerhets-hardening: security headers, CSRF, session timeout (laag prio)
 
 ### Medlemskort (fgt-member-card)
@@ -62,7 +72,7 @@ Tre system, en Postgres, en spelaridentitet. Checka in en gang → syns overallt
 - [x] Nginx reverse proxy + HTTPS redirect
 - [ ] Byt logotyp till transparent bakgrund (vantar pa fil fran Viktor)
 - [ ] Visa spelarstatistik pa kortet (antal events, favorite game, streak)
-- [ ] Testa med riktiga medlemmar
+- [x] Testa med riktiga medlemmar (live-test 2026-03-25, QR + checkin fungerade)
 
 ### Turneringssystemet (fgt-checkin-system)
 
@@ -87,10 +97,11 @@ Tre system, en Postgres, en spelaridentitet. Checka in en gang → syns overallt
 
 ## Nasta steg (prioritetsordning)
 
-1. **Nu:** Spelarstatistik pa medlemskortet (events, favorit-spel, streak)
-2. **Nasta:** Testa hela kedjan end-to-end (turnering → kort → meetup)
-3. **Sen:** Insights-integration, statistik over alla system
-4. **Laag prio:** Security headers, CSRF, session timeout
+1. **Nu:** Samla mer live-feedback (sondagstraffen 2026-03-29)
+2. **Nasta:** Spelarstatistik pa medlemskortet (events, favorit-spel, streak)
+3. **Sen:** Insights/analytics fran meetup-data (peak fran checkin-tider, trender, retention)
+4. **Sen:** Testa hela kedjan end-to-end (turnering → kort → meetup)
+5. **Laag prio:** Security headers, CSRF, session timeout
 
 ---
 
