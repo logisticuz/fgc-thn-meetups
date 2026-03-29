@@ -39,6 +39,11 @@ async function undoCheckout(checkinId) {
   loadAttendance();
 }
 
+async function checkoutCheckin(checkinId) {
+  await fetch(`/api/checkin/${checkinId}/checkout`, { method: "POST" });
+  loadAttendance();
+}
+
 function clearChildren(el) {
   while (el.firstChild) el.removeChild(el.firstChild);
 }
@@ -115,6 +120,8 @@ async function loadAttendance() {
       }
       if (c.checked_out) {
         actionChildren.push(el("button", { className: "btn-undo", title: "Ångra utcheckning", textContent: "\u21a9", onclick: () => undoCheckout(c.checkin_id) }));
+      } else {
+        actionChildren.push(el("button", { className: "btn-undo", title: "Checka ut", textContent: "\u21aa", onclick: () => checkoutCheckin(c.checkin_id) }));
       }
       actionChildren.push(el("button", { className: "btn-delete", title: "Ta bort", textContent: "\u00d7", onclick: () => deleteCheckin(c.checkin_id) }));
 
